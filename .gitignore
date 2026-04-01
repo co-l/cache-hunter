@@ -1,0 +1,5 @@
+node_modules/
+cache-hunter.db
+*.db
+dist/
+*.csv

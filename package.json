@@ -1,0 +1,29 @@
+{
+  "name": "cache-hunter",
+  "version": "1.0.0",
+  "description": "Transparent proxy for vLLM with SQLite logging for cache debugging",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "analyze": "tsx src/analyze-patterns.ts",
+    "tree": "tsx src/hash-tree.ts",
+    "demo": "tsx src/demo-tree.ts"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "sql.js": "^1.10.3",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.0",
+    "@types/sql.js": "^1.4.9",
+    "@types/uuid": "^9.0.7",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vitest": "^4.1.2"
+  }
+}
