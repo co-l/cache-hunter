@@ -70,7 +70,10 @@ async function showHashTree() {
   const allCompletions = results[0].values.map(row => {
     const body = row[0] as string;
     const parsed = JSON.parse(body);
-    return parsed.messages || [];
+    return {
+      messages: (parsed.messages || []) as Array<{ role: string; content: string }>,
+      tools: parsed.tools || [],
+    };
   });
 
   // Filter out parallel prompts (session title, summary generation)
@@ -80,24 +83,37 @@ async function showHashTree() {
   ];
   
   // First filter messages within each completion
-  const filteredCompletions = allCompletions.map(messages => 
-    messages.filter((msg: { role: string; content: string }) => 
+  const filteredCompletions = allCompletions.map(completion => ({
+    messages: completion.messages.filter(msg => 
       !PARALLEL_PROMPT_KEYWORDS.some(keyword => msg.content.includes(keyword))
-    )
-  );
+    ),
+    tools: completion.tools,
+  }));
   
   // Then filter out completions that are now empty (only had parallel prompts)
-  const completions = filteredCompletions.filter(messages => messages.length > 0);
+  const completions = filteredCompletions.filter(completion => completion.messages.length > 0);
 
   const numCompletions = completions.length;
-  const maxMessages = Math.max(...completions.map(c => c.length));
+  const maxMessages = Math.max(...completions.map(c => c.messages.length));
   
-  console.log(`Analyzing ${numCompletions} API calls with max ${maxMessages} messages each...\n`);
+  console.log(`Analyzing ${numCompletions} API calls with max ${maxMessages + 1} items each (tools + messages)...\n`);
 
-  // Build hash grid
-  const grid = buildMessageHashGrid(completions.map(messages => ({ messages })));
+  // Build hash grid for tools + messages
+  const toolsHashes = completions.map(comp => {
+    if (comp.tools && comp.tools.length > 0) {
+      const toolsStr = JSON.stringify(comp.tools);
+      return hashContent(toolsStr);
+    }
+    return null;
+  });
 
-  console.log('HASH GRID (rows=messages, cols=API calls):');
+  // Build hash grid for messages
+  const grid = buildMessageHashGrid(completions);
+
+  // Combine tools (row 0) + messages (rows 1..n)
+  const allRows = [toolsHashes, ...grid.cells];
+
+  console.log('HASH GRID (rows=tools+messages, cols=API calls):');
   console.log('-'.repeat(80));
   console.log();
 
@@ -106,30 +122,36 @@ async function showHashTree() {
   console.log(header);
   console.log('-'.repeat(header.length));
   
-  // Data rows
-  for (let msgIdx = 0; msgIdx < maxMessages; msgIdx++) {
-    const rowCells = grid.cells[msgIdx].map((hash, colIdx) => {
+  // Data rows (tools + messages)
+  for (let rowIdx = 0; rowIdx < allRows.length; rowIdx++) {
+    const rowCells = allRows[rowIdx].map((hash, colIdx) => {
       if (!hash) return '    ';
       // Check if this hash differs from the last non-null hash in this row
-      const prevHashes = grid.cells[msgIdx].slice(0, colIdx).filter(h => h !== null);
+      const prevHashes = allRows[rowIdx].slice(0, colIdx).filter(h => h !== null);
       if (prevHashes.length > 0 && prevHashes[prevHashes.length - 1] !== hash) {
         return `\x1b[31m${hash}\x1b[0m`; // Red for mismatch
       }
       return hash;
     }).join(' ');
     
-    // Get preview from first message in this row
-    const firstCompletionWithMessage = completions.find(comp => comp[msgIdx]);
-    let preview = firstCompletionWithMessage 
-      ? firstCompletionWithMessage[msgIdx].content.substring(0, 40).replace(/\n/g, '\\n')
-      : '';
-    
-    // Highlight based on message role
-    const messageRole = firstCompletionWithMessage ? firstCompletionWithMessage[msgIdx].role : '';
-    if (messageRole === 'user') {
-      preview = `\x1b[32m${preview}\x1b[0m`; // Green for user messages
-    } else if (messageRole === 'system') {
-      preview = `\x1b[34m${preview}\x1b[0m`; // Blue for system messages
+    // Get preview
+    let preview = '';
+    if (rowIdx === 0) {
+      preview = '(tools)';
+    } else {
+      const msgIdx = rowIdx - 1;
+      const firstCompletionWithMessage = completions.find(comp => comp.messages[msgIdx]);
+      if (firstCompletionWithMessage) {
+        preview = firstCompletionWithMessage.messages[msgIdx].content.substring(0, 40).replace(/\n/g, '\\n');
+        
+        // Highlight based on message role
+        const messageRole = firstCompletionWithMessage.messages[msgIdx].role;
+        if (messageRole === 'user') {
+          preview = `\x1b[32m${preview}\x1b[0m`; // Green for user messages
+        } else if (messageRole === 'system') {
+          preview = `\x1b[34m${preview}\x1b[0m`; // Blue for system messages
+        }
+      }
     }
     
     console.log(`${rowCells} | ${preview}`);
@@ -138,6 +160,26 @@ async function showHashTree() {
   console.log();
   console.log('CONTEXT VALIDATION:');
   console.log('-'.repeat(80));
+  
+  // Validate tools consistency
+  const uniqueToolsHashes = [...new Set(toolsHashes.filter(h => h !== null))];
+  if (uniqueToolsHashes.length > 1) {
+    console.log(`\x1b[31m✗ TOOLS: Hash changed across calls!\x1b[0m`);
+    const toolsVersions = new Map<string, number[]>();
+    toolsHashes.forEach((hash, idx) => {
+      if (hash) {
+        if (!toolsVersions.has(hash)) {
+          toolsVersions.set(hash, []);
+        }
+        toolsVersions.get(hash)!.push(idx);
+      }
+    });
+    for (const [hash, indices] of toolsVersions) {
+      console.log(`  Calls ${indices.join(', ')}: [${hash}]`);
+    }
+  } else {
+    console.log(`\x1b[32m✓ Tools consistent across all calls\x1b[0m`);
+  }
   
   // Validate: each message should have same hash across all calls where it appears
   let allValid = true;
@@ -156,7 +198,7 @@ async function showHashTree() {
       const uniqueVersions = new Map<string, { callIdx: number; content: string }[]>();
       
       completions.forEach((comp, idx) => {
-        const message = comp[msgIdx];
+        const message = comp.messages[msgIdx];
         if (message) {
           const hash = grid.cells[msgIdx][idx]!;
           if (!uniqueVersions.has(hash)) {
