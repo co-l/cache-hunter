@@ -7,6 +7,7 @@ import { hashContent } from './context-tree.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = join(__dirname, '..', 'cache-hunter.db');
+const filterHash = process.argv[2];
 
 export interface MessageGrid {
   rows: number;
@@ -86,7 +87,7 @@ async function showHashTree() {
   const filteredCompletions = allCompletions.map((completion, idx) => {
     const filtered = completion.messages.filter(msg => 
       !PARALLEL_PROMPT_KEYWORDS.some(keyword => {
-        const matches = msg.content.includes(keyword);
+        const matches = msg.content && msg.content.includes(keyword);
         if (matches) {
           console.log(`  [Call ${idx}] Filtering out message with keyword: "${keyword.substring(0, 30)}..."`);
         }
@@ -100,7 +101,19 @@ async function showHashTree() {
   });
   
   // Then filter out completions that are now empty (only had parallel prompts)
-  const completions = filteredCompletions.filter(completion => completion.messages.length > 0);
+  let completions = filteredCompletions.filter(completion => completion.messages.length > 0);
+
+  // Filter by first message hash if provided
+  if (filterHash) {
+    const originalCount = completions.length;
+    completions = completions.filter(comp => {
+      const firstMsg = comp.messages[0];
+      if (!firstMsg) return false;
+      const firstMsgHash = hashContent(firstMsg.content);
+      return firstMsgHash === filterHash;
+    });
+    console.log(`Filtered from ${originalCount} to ${completions.length} calls matching hash ${filterHash}\n`);
+  }
 
   const numCompletions = completions.length;
   const maxMessages = Math.max(...completions.map(c => c.messages.length));
@@ -152,9 +165,9 @@ async function showHashTree() {
       const firstCompletionWithMessage = completions.find(comp => comp.messages[msgIdx]);
       if (firstCompletionWithMessage) {
         preview = firstCompletionWithMessage.messages[msgIdx].content
+          .replace(/\u001b\[[0-9;]*m/g, '') // Strip ANSI color codes
           .substring(0, 40)
-          .replace(/\n/g, '\\n')
-          .replace(/\u001b\[[0-9;]*m/g, ''); // Strip ANSI color codes
+          .replace(/\n/g, '\\n');
       }
     }
     
@@ -180,6 +193,8 @@ async function showHashTree() {
     });
     for (const [hash, indices] of toolsVersions) {
       console.log(`  Calls ${indices.join(', ')}: [${hash}]`);
+      const toolNames = completions[indices[0]].tools.map((t: any) => t.name || t.function?.name);
+      console.log(`    Tools: ${toolNames.join(', ')}`);
     }
   } else {
     const callsWithTools = toolsHashes.map((h, i) => h ? i : -1).filter(i => i !== -1);

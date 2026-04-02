@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync, unlinkSync } from 'fs';
+import { existsSync, renameSync } from 'fs';
 import { AsyncLogger } from './logger.js';
 import { createProxyHandler, ProxyResult } from './proxy.js';
 import { execSync } from 'child_process';
@@ -20,8 +20,10 @@ console.log(`Proxy listening on http://localhost:${PROXY_PORT}`);
 console.log(`Forwarding to vLLM at http://${VLLM_HOST}:${VLLM_PORT}`);
 
 if (existsSync(DB_PATH)) {
-  unlinkSync(DB_PATH);
-  console.log('Database reset - previous data cleared');
+  const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14);
+  const backupPath = DB_PATH.replace('.db', `.${timestamp}.db`);
+  renameSync(DB_PATH, backupPath);
+  console.log(`Database archived to: ${backupPath}`);
 }
 
 const logger = new AsyncLogger(DB_PATH);

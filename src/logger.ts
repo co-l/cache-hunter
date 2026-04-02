@@ -61,6 +61,7 @@ export class AsyncLogger {
 
   log(request: RequestRecord, response: ResponseRecord): void {
     this.queue.push({ request, response });
+    process.stdout.write('.');
     
     if (this.queue.length >= 50) {
       this.flush();
