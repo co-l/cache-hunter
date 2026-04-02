@@ -83,12 +83,21 @@ async function showHashTree() {
   ];
   
   // First filter messages within each completion
-  const filteredCompletions = allCompletions.map(completion => ({
-    messages: completion.messages.filter(msg => 
-      !PARALLEL_PROMPT_KEYWORDS.some(keyword => msg.content.includes(keyword))
-    ),
-    tools: completion.tools,
-  }));
+  const filteredCompletions = allCompletions.map((completion, idx) => {
+    const filtered = completion.messages.filter(msg => 
+      !PARALLEL_PROMPT_KEYWORDS.some(keyword => {
+        const matches = msg.content.includes(keyword);
+        if (matches) {
+          console.log(`  [Call ${idx}] Filtering out message with keyword: "${keyword.substring(0, 30)}..."`);
+        }
+        return matches;
+      })
+    );
+    return {
+      messages: filtered,
+      tools: completion.tools,
+    };
+  });
   
   // Then filter out completions that are now empty (only had parallel prompts)
   const completions = filteredCompletions.filter(completion => completion.messages.length > 0);
@@ -142,15 +151,10 @@ async function showHashTree() {
       const msgIdx = rowIdx - 1;
       const firstCompletionWithMessage = completions.find(comp => comp.messages[msgIdx]);
       if (firstCompletionWithMessage) {
-        preview = firstCompletionWithMessage.messages[msgIdx].content.substring(0, 40).replace(/\n/g, '\\n');
-        
-        // Highlight based on message role
-        const messageRole = firstCompletionWithMessage.messages[msgIdx].role;
-        if (messageRole === 'user') {
-          preview = `\x1b[32m${preview}\x1b[0m`; // Green for user messages
-        } else if (messageRole === 'system') {
-          preview = `\x1b[34m${preview}\x1b[0m`; // Blue for system messages
-        }
+        preview = firstCompletionWithMessage.messages[msgIdx].content
+          .substring(0, 40)
+          .replace(/\n/g, '\\n')
+          .replace(/\u001b\[[0-9;]*m/g, ''); // Strip ANSI color codes
       }
     }
     
@@ -178,7 +182,14 @@ async function showHashTree() {
       console.log(`  Calls ${indices.join(', ')}: [${hash}]`);
     }
   } else {
-    console.log(`\x1b[32m✓ Tools consistent across all calls\x1b[0m`);
+    const callsWithTools = toolsHashes.map((h, i) => h ? i : -1).filter(i => i !== -1);
+    const callsWithoutTools = toolsHashes.map((h, i) => h === null ? i : -1).filter(i => i !== -1);
+    
+    if (callsWithoutTools.length > 0) {
+      console.log(`\x1b[31m✗ Tools present in calls [${callsWithTools.join(', ')}] but MISSING in calls [${callsWithoutTools.join(', ')}]\x1b[0m`);
+    } else {
+      console.log(`\x1b[32m✓ Tools consistent across all calls\x1b[0m`);
+    }
   }
   
   // Validate: each message should have same hash across all calls where it appears
@@ -211,10 +222,52 @@ async function showHashTree() {
         }
       });
       
-      // Show each unique version
-      for (const [hash, versions] of uniqueVersions) {
-        const content = versions[0].content.replace(/\n/g, '\\n');
-        console.log(`  [${hash}] ${content}`);
+      // Show each unique version with line-by-line diff
+      const versionEntries = [...uniqueVersions.entries()];
+      if (versionEntries.length === 2) {
+        const [hash1, versions1] = versionEntries[0];
+        const [hash2, versions2] = versionEntries[1];
+        const content1 = versions1[0].content;
+        const content2 = versions2[0].content;
+        
+        console.log(`\n  Version 1 [${hash1}] (${content1.length} chars):`);
+        console.log(`  Version 2 [${hash2}] (${content2.length} chars):`);
+        console.log('\n  Line-by-line diff:');
+        
+        const lines1 = content1.split('\n');
+        const lines2 = content2.split('\n');
+        const maxLines = Math.max(lines1.length, lines2.length);
+        
+        let diffCount = 0;
+        for (let i = 0; i < maxLines && diffCount < 10; i++) {
+          const line1 = lines1[i] || '';
+          const line2 = lines2[i] || '';
+          
+          if (line1 !== line2) {
+            diffCount++;
+            console.log(`    Line ${i}:`);
+            console.log(`      V1: ${line1.substring(0, 80)}`);
+            console.log(`      V2: ${line2.substring(0, 80)}`);
+          }
+        }
+        
+        if (diffCount >= 10) {
+          console.log('    ... (showing first 10 differences)');
+        }
+      } else {
+        // Fallback for single version or more than 2 versions
+        for (const [hash, versions] of uniqueVersions) {
+          let content = typeof versions[0].content === 'string' 
+            ? versions[0].content.replace(/\n/g, '\\n')
+            : JSON.stringify(versions[0].content);
+          
+          // Truncate to 200 chars
+          if (content.length > 200) {
+            content = content.substring(0, 200) + '...';
+          }
+          
+          console.log(`  [${hash}] ${content}`);
+        }
       }
     }
   }
