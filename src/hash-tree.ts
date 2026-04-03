@@ -148,6 +148,9 @@ async function showHashTree() {
 
 
   for (let rowIdx = 0; rowIdx < allRows.length; rowIdx++) {
+
+    const raw_cells = allRows[rowIdx].map((hash) => hash ? hash : '    ')
+
     const rowCells = allRows[rowIdx].map((hash, colIdx) => {
       if (!hash) return '    ';
       const prevHashes = allRows[rowIdx].slice(0, colIdx).filter(h => h !== null);
@@ -173,7 +176,7 @@ async function showHashTree() {
       }
     }
 
-    lines.push(rowCells)
+    lines.push(raw_cells)
     
     console.log(`${rowCells.join(' ')} | ${preview}`);
   }
