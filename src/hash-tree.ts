@@ -1,12 +1,12 @@
 #!/usr/bin/env tsx
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import initSqlJs from 'sql.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { hashContent } from './context-tree.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DB_PATH = join(__dirname, '..', 'cache-hunter.db');
+const DB_PATH = join(__dirname, '..', 'data', 'cache-hunter.db');
 const filterHash = process.argv[2];
 
 export interface MessageGrid {
@@ -14,6 +14,8 @@ export interface MessageGrid {
   cols: number;
   cells: (string | null)[][];
 }
+
+const hash_map = {}
 
 export function buildMessageHashGrid(completions: Array<{ messages: Array<{ role: string; content: string }> }>): MessageGrid {
   const maxMessages = Math.max(...completions.map(c => c.messages.length));
@@ -26,7 +28,10 @@ export function buildMessageHashGrid(completions: Array<{ messages: Array<{ role
     for (let compIdx = 0; compIdx < numCompletions; compIdx++) {
       const msg = completions[compIdx].messages[msgIdx];
       if (msg) {
-        row.push(hashContent(msg.content));
+        const hash = hashContent(msg.content);
+        row.push(hash);
+        // @ts-ignore
+        hash_map[hash] = msg.content;
       } else {
         row.push(null);
       }
@@ -40,6 +45,7 @@ export function buildMessageHashGrid(completions: Array<{ messages: Array<{ role
     cells,
   };
 }
+
 
 async function showHashTree() {
   const SQL = await initSqlJs();
@@ -67,7 +73,6 @@ async function showHashTree() {
     return;
   }
 
-  // Extract all completions in order
   const allCompletions = results[0].values.map(row => {
     const body = row[0] as string;
     const parsed = JSON.parse(body);
@@ -77,13 +82,11 @@ async function showHashTree() {
     };
   });
 
-  // Filter out parallel prompts (session title, summary generation)
   const PARALLEL_PROMPT_KEYWORDS = [
     'Generate a concise, descriptive session name',
     'Write a 2-3 sentence summary of what the user wants to accomplish',
   ];
   
-  // First filter messages within each completion
   const filteredCompletions = allCompletions.map((completion, idx) => {
     const filtered = completion.messages.filter(msg => 
       !PARALLEL_PROMPT_KEYWORDS.some(keyword => {
@@ -100,10 +103,8 @@ async function showHashTree() {
     };
   });
   
-  // Then filter out completions that are now empty (only had parallel prompts)
   let completions = filteredCompletions.filter(completion => completion.messages.length > 0);
 
-  // Filter by first message hash if provided
   if (filterHash) {
     const originalCount = completions.length;
     completions = completions.filter(comp => {
@@ -120,7 +121,6 @@ async function showHashTree() {
   
   console.log(`Analyzing ${numCompletions} API calls with max ${maxMessages + 1} items each (tools + messages)...\n`);
 
-  // Build hash grid for tools + messages
   const toolsHashes = completions.map(comp => {
     if (comp.tools && comp.tools.length > 0) {
       const toolsStr = JSON.stringify(comp.tools);
@@ -129,56 +129,59 @@ async function showHashTree() {
     return null;
   });
 
-  // Build hash grid for messages
   const grid = buildMessageHashGrid(completions);
 
-  // Combine tools (row 0) + messages (rows 1..n)
   const allRows = [toolsHashes, ...grid.cells];
 
   console.log('HASH GRID (rows=tools+messages, cols=API calls):');
   console.log('-'.repeat(80));
   console.log();
 
-  // Header row
-  const header = completions.map((_, i) => `${String(i).padStart(4)}`).join(' ');
-  console.log(header);
+  const header = completions.map((_, i) => `${String(i).padStart(4)}`)
+  console.log(header.join(' '));
   console.log('-'.repeat(header.length));
-  
-  // Data rows (tools + messages)
+
+
+  const lines = [
+    header
+  ]
+
+
   for (let rowIdx = 0; rowIdx < allRows.length; rowIdx++) {
     const rowCells = allRows[rowIdx].map((hash, colIdx) => {
       if (!hash) return '    ';
-      // Check if this hash differs from the last non-null hash in this row
       const prevHashes = allRows[rowIdx].slice(0, colIdx).filter(h => h !== null);
       if (prevHashes.length > 0 && prevHashes[prevHashes.length - 1] !== hash) {
-        return `\x1b[31m${hash}\x1b[0m`; // Red for mismatch
+        return `\x1b[31m${hash}\x1b[0m`;
       }
       return hash;
-    }).join(' ');
-    
-    // Get preview
+    })
+
     let preview = '';
+    let message = ''
     if (rowIdx === 0) {
-      preview = '(tools)';
+      message = preview = '(tools)';
     } else {
       const msgIdx = rowIdx - 1;
       const firstCompletionWithMessage = completions.find(comp => comp.messages[msgIdx]);
       if (firstCompletionWithMessage) {
-        preview = firstCompletionWithMessage.messages[msgIdx].content
-          .replace(/\u001b\[[0-9;]*m/g, '') // Strip ANSI color codes
+        message = firstCompletionWithMessage.messages[msgIdx].content
+        preview = message
+          .replace(/\u001b\[[0-9;]*m/g, '')
           .substring(0, 40)
           .replace(/\n/g, '\\n');
       }
     }
+
+    lines.push(rowCells)
     
-    console.log(`${rowCells} | ${preview}`);
+    console.log(`${rowCells.join(' ')} | ${preview}`);
   }
   
   console.log();
   console.log('CONTEXT VALIDATION:');
   console.log('-'.repeat(80));
   
-  // Validate tools consistency
   const uniqueToolsHashes = [...new Set(toolsHashes.filter(h => h !== null))];
   if (uniqueToolsHashes.length > 1) {
     console.log(`\x1b[31m✗ TOOLS: Hash changed across calls!\x1b[0m`);
@@ -207,7 +210,6 @@ async function showHashTree() {
     }
   }
   
-  // Validate: each message should have same hash across all calls where it appears
   let allValid = true;
   for (let msgIdx = 0; msgIdx < maxMessages; msgIdx++) {
     const hashes = grid.cells[msgIdx].filter(h => h !== null) as string[];
@@ -220,7 +222,6 @@ async function showHashTree() {
       allValid = false;
       console.log(`\x1b[31m✗ Row ${msgIdx}: HASH MISMATCH - content changed across calls!\x1b[0m`);
       
-      // Group by unique hash and show only different versions
       const uniqueVersions = new Map<string, { callIdx: number; content: string }[]>();
       
       completions.forEach((comp, idx) => {
@@ -237,15 +238,17 @@ async function showHashTree() {
         }
       });
       
-      // Show each unique version with line-by-line diff
       const versionEntries = [...uniqueVersions.entries()];
       if (versionEntries.length === 2) {
         const [hash1, versions1] = versionEntries[0];
         const [hash2, versions2] = versionEntries[1];
-        const content1 = versions1[0].content;
-        const content2 = versions2[0].content;
+        if (!versions1[0] || !versions2[0]) return;
+        const content1 = versions1[0]?.content;
+        const content2 = versions2[0]?.content;
         
-        console.log(`\n  Version 1 [${hash1}] (${content1.length} chars):`);
+        if (!content1 || !content2) continue;
+        
+        console.log(`\n  Version 1 [${hash1}] (${content1?.length ?? 0} chars):`);
         console.log(`  Version 2 [${hash2}] (${content2.length} chars):`);
         console.log('\n  Line-by-line diff:');
         
@@ -270,13 +273,11 @@ async function showHashTree() {
           console.log('    ... (showing first 10 differences)');
         }
       } else {
-        // Fallback for single version or more than 2 versions
         for (const [hash, versions] of uniqueVersions) {
           let content = typeof versions[0].content === 'string' 
             ? versions[0].content.replace(/\n/g, '\\n')
             : JSON.stringify(versions[0].content);
           
-          // Truncate to 200 chars
           if (content.length > 200) {
             content = content.substring(0, 200) + '...';
           }
@@ -290,6 +291,14 @@ async function showHashTree() {
   if (allValid) {
     console.log('\x1b[32m✓ All messages have consistent hashes across API calls!\x1b[0m');
   }
+
+
+  console.log("html-tree/tree-data.json written with all data")
+  writeFileSync("html-tree/tree-data.json", JSON.stringify({
+    lines,
+    hash_map,
+    all_completions: allCompletions
+  }))
 
   db.close();
 }

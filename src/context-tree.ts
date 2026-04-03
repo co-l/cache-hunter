@@ -12,8 +12,9 @@ export interface ContextNode {
   cumulativeHash: string;
 }
 
-export function hashContent(content: string): string {
-  return createHash('md5').update(content).digest('hex').substring(0, 4);
+export function hashContent(content: string | any[]): string {
+  const str = typeof content === 'string' ? content : JSON.stringify(content);
+  return createHash('md5').update(str).digest('hex').substring(0, 4);
 }
 
 export function buildContextTree(messages: Array<{ role: string; content: string }>): ContextNode[] {

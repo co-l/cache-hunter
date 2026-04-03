@@ -12,7 +12,7 @@ const PROJECT_ROOT = join(__dirname, '..');
 const PROXY_PORT = 8787;
 const VLLM_HOST = '192.168.1.223';
 const VLLM_PORT = 8000;
-const DB_PATH = join(PROJECT_ROOT, 'cache-hunter.db');
+const DB_PATH = join(PROJECT_ROOT, 'data', 'cache-hunter.db');
 
 console.log('Cache Hunter Proxy starting...');
 console.log(`Database: ${DB_PATH}`);

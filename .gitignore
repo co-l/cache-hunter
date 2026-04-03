@@ -1,5 +1,8 @@
 node_modules/
-cache-hunter.db
+data/cache-hunter.db
 *.db
 dist/
 *.csv
+data/
+.idea/
+.playwright-cli/
