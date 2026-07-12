@@ -1,0 +1,111 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #111;
+  --bg-tertiary: #1a1a1a;
+  --border: #333;
+  --text-primary: #ccc;
+  --text-secondary: #888;
+  --accent: #e67e00;
+  --accent-hover: #ff9500;
+  --danger: #f66;
+  --danger-bg: #2a0a0a;
+  --success: #6f6;
+  --success-bg: #0a2a0a;
+  --diff-red: #660000;
+  --diff-red-text: #ff6666;
+  --selected-outline: #e67e00;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg-primary);
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+input, button {
+  font-family: monospace;
+  font-size: 12px;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  padding: 6px 14px;
+  border-radius: 3px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+button:hover {
+  background: #252525;
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--accent);
+  color: #0a0a0a;
+  border-color: var(--accent);
+  font-weight: bold;
+}
+
+button.primary:hover {
+  background: var(--accent-hover);
+}
+
+button.danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+button.danger:hover {
+  background: var(--danger-bg);
+}
+
+input {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  border-radius: 3px;
+  outline: none;
+}
+
+input:focus {
+  border-color: var(--accent);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

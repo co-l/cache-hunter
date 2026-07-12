@@ -1,85 +1,60 @@
-import express, { Request, Response } from 'express';
+import { createServer } from 'http';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync, renameSync } from 'fs';
-import { AsyncLogger } from './logger.js';
-import { createProxyHandler, ProxyResult, fetchActiveModel, getActiveModel } from './proxy.js';
-import { execSync } from 'child_process';
+import express from 'express';
+import { ProxyEngine } from './proxy-engine.js';
+import { createApp } from './app.js';
+import { setDataDir } from './session-manager.js';
+import { attachWSServer } from './ws-server.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, '..');
+const DATA_DIR = join(PROJECT_ROOT, 'data');
 
-const PROXY_PORT = 8787;
-const VLLM_HOST = '192.168.1.223';
-const VLLM_PORT = 8000;
-const DB_PATH = join(PROJECT_ROOT, 'data', 'cache-hunter.db');
+const WEB_PORT = parseInt(process.env.WEB_PORT || '4000', 10);
+const PROXY_PORT = parseInt(process.env.PROXY_PORT || '8787', 10);
+const DEFAULT_TARGET_HOST = process.env.TARGET_HOST || '192.168.1.223';
+const DEFAULT_TARGET_PORT = parseInt(process.env.TARGET_PORT || '8000', 10);
 
-console.log('Cache Hunter Proxy starting...');
-console.log(`Database: ${DB_PATH}`);
-console.log(`Proxy listening on http://localhost:${PROXY_PORT}`);
-console.log(`Forwarding to vLLM at http://${VLLM_HOST}:${VLLM_PORT}`);
+setDataDir(DATA_DIR);
 
-if (existsSync(DB_PATH)) {
-  const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14);
-  const backupPath = DB_PATH.replace('.db', `.${timestamp}.db`);
-  renameSync(DB_PATH, backupPath);
-  console.log(`Database archived to: ${backupPath}`);
+const engine = new ProxyEngine({
+  targetHost: DEFAULT_TARGET_HOST,
+  targetPort: DEFAULT_TARGET_PORT,
+  proxyPort: PROXY_PORT,
+});
+
+const server = createServer();
+const broadcaster = attachWSServer(server);
+
+const webApp = createApp(engine, DATA_DIR, broadcaster);
+
+const FRONTEND_DIST = join(PROJECT_ROOT, 'frontend', 'dist');
+webApp.use(express.static(FRONTEND_DIST));
+webApp.get('*', (_req: any, res: any) => {
+  res.sendFile(join(FRONTEND_DIST, 'index.html'));
+});
+
+server.on('request', webApp);
+
+server.listen(WEB_PORT, () => {
+  console.log(`Cache Hunter Web App running on http://localhost:${WEB_PORT}`);
+  console.log(`Proxy port: ${PROXY_PORT}`);
+  console.log(`Default target: ${DEFAULT_TARGET_HOST}:${DEFAULT_TARGET_PORT}`);
+  console.log(`Data directory: ${DATA_DIR}`);
+});
+
+function shutdown() {
+  console.log('\nShutting down...');
+  server.close(() => {
+    if (engine.running) {
+      engine.stop().catch(() => {});
+    }
+    console.log('Graceful shutdown complete');
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(1), 5000);
 }
 
-const logger = new AsyncLogger(DB_PATH);
-const proxyHandler = createProxyHandler();
-
-proxyHandler.onLog = (result: ProxyResult) => {
-  logger.log(result.request, result.response);
-};
-
-const app = express();
-
-app.all('*', (req: Request, res: Response) => {
-  proxyHandler(req, res);
-});
-
-const server = app.listen(PROXY_PORT, async () => {
-  await fetchActiveModel();
-  const active = getActiveModel();
-  if (active) {
-    console.log(`Active model: ${active}`);
-  }
-  console.log(`Proxy server ready on port ${PROXY_PORT}`);
-});
-
-setInterval(async () => {
-  await fetchActiveModel();
-}, 60000);
-
-process.on('SIGINT', () => {
-  console.log('\n\nShutting down...\n');
-  server.close(() => {
-    logger.close();
-    
-    try {
-      execSync('npx tsx src/hash-tree.ts', { stdio: 'inherit', cwd: PROJECT_ROOT });
-    } catch (e) {
-      console.log('Hash tree visualization completed');
-    }
-    
-    console.log('\nGraceful shutdown complete');
-    process.exit(0);
-  });
-});
-
-process.on('SIGTERM', () => {
-  console.log('\n\nShutting down...\n');
-  server.close(() => {
-    logger.close();
-    
-    try {
-      execSync('npx tsx src/hash-tree.ts', { stdio: 'inherit', cwd: PROJECT_ROOT });
-    } catch (e) {
-      console.log('Hash tree visualization completed');
-    }
-    
-    console.log('\nGraceful shutdown complete');
-    process.exit(0);
-  });
-});
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

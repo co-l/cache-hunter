@@ -1,5 +1,5 @@
 {
-  "command": "npx http-server -p 3255 -c-1",
-  "url": "http://localhost:3255",
-  "hotReload": false
+  "command": "npm run dev",
+  "url": "http://localhost:5173",
+  "hotReload": true
 }

@@ -1,0 +1,325 @@
+.hash-grid-container {
+  height: 100%;
+  overflow: auto;
+  position: relative;
+}
+
+.hash-grid-wrapper {
+  display: inline-block;
+  min-width: 100%;
+  padding-bottom: 28px;
+}
+
+.hash-grid {
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.hash-grid th,
+.hash-grid td {
+  border: 1px solid #444;
+  padding: 2px 5px;
+  min-width: 4ch;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  height: 24px;
+  font-size: 10px;
+}
+
+.hash-grid th {
+  background: var(--accent);
+  color: #0a0a0a;
+  font-weight: bold;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  cursor: pointer;
+}
+
+.hash-grid th.excluded {
+  opacity: 0.35;
+  text-decoration: line-through;
+}
+
+.hash-grid td.hash-cell {
+  background: var(--bg-primary);
+  cursor: pointer;
+}
+
+.hash-grid td.hash-cell:hover {
+  background: #333;
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.hash-grid td.diff-cell {
+  background: var(--diff-red);
+  color: var(--diff-red-text);
+}
+
+.hash-grid td.diff-cell:hover {
+  background: #883333;
+}
+
+.hash-grid td.excluded {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.hash-grid td.compare-a,
+.hash-grid td.compare-b {
+  outline: 2px solid var(--selected-outline);
+  outline-offset: -2px;
+}
+
+.hash-grid td.content-cell {
+  background: var(--bg-secondary);
+  text-align: left;
+  min-width: 46ch;
+  max-width: 46ch;
+  position: sticky;
+  right: 0;
+  z-index: 5;
+  font-size: 10px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hash-grid th.content-cell {
+  background: var(--accent);
+  color: #0a0a0a;
+  position: sticky;
+  right: 0;
+  z-index: 25;
+}
+
+.hints {
+  padding: 8px 4px;
+  font-size: 10px;
+  color: #777;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.hint kbd {
+  display: inline-block;
+  background: #333;
+  border: 1px solid #555;
+  border-radius: 2px;
+  padding: 0 4px;
+  font-family: monospace;
+  font-size: 10px;
+  color: #ccc;
+}
+
+.hint.sep {
+  color: #444;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 1000;
+  overflow: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.modal-content {
+  background: var(--bg-secondary);
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+  max-width: 700px;
+  width: 100%;
+  max-height: calc(100vh - 80px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-content.wide {
+  max-width: 90vw;
+}
+
+.modal-header {
+  background: var(--accent);
+  color: #0a0a0a;
+  padding: 10px 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: bold;
+}
+
+.modal-hash {
+  font-size: 12px;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #0a0a0a;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 5px;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: #fff;
+}
+
+.modal-body {
+  padding: 15px;
+  overflow: auto;
+  max-height: calc(100vh - 140px);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.content-text {
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+/* Diff lines */
+.diff-lines {
+  font-family: monospace;
+}
+
+.diff-line {
+  display: flex;
+  gap: 8px;
+  padding: 1px 0;
+  font-size: 11px;
+}
+
+.diff-line.added {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.diff-line.removed {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.diff-line.unchanged {
+  color: #888;
+}
+
+.diff-line.changed {
+  background: #2a2a0a;
+  color: #cc6;
+}
+
+.diff-line-number {
+  color: #555;
+  min-width: 3ch;
+  text-align: right;
+  user-select: none;
+}
+
+.diff-line-content {
+  white-space: pre-wrap;
+  word-break: break-all;
+  flex: 1;
+}
+
+/* Tool cards */
+.tools-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tool-card {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 8px 10px;
+}
+
+.tool-card.removed {
+  border-color: var(--diff-red);
+  background: #1a0808;
+}
+
+.tool-card.added {
+  border-color: #006600;
+  background: #081a08;
+}
+
+.tool-name {
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.tool-desc {
+  color: #aaa;
+  margin-bottom: 8px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.tool-params {
+  max-width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+  table-layout: auto;
+}
+
+.tool-params th {
+  background: #222;
+  color: var(--accent);
+  padding: 2px 6px;
+  text-align: left;
+  font-weight: bold;
+  border: 1px solid var(--border);
+}
+
+.tool-params td {
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  color: #bbb;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.tool-params .param-name {
+  color: #6cf;
+  font-weight: bold;
+}
+
+.tool-params .param-desc {
+  color: #999;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.tool-params .param-req-yes {
+  color: var(--danger);
+}
+
+.tool-params .param-req-no {
+  color: var(--success);
+}

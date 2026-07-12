@@ -68,7 +68,7 @@ export class AsyncLogger {
     }
   }
 
-  private async flush(): Promise<void> {
+  async flush(): Promise<void> {
     if (this.flushing || this.queue.length === 0) {
       return;
     }
