@@ -3,7 +3,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync, renameSync } from 'fs';
 import { AsyncLogger } from './logger.js';
-import { createProxyHandler, ProxyResult } from './proxy.js';
+import { createProxyHandler, ProxyResult, fetchActiveModel, getActiveModel } from './proxy.js';
 import { execSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -39,9 +39,18 @@ app.all('*', (req: Request, res: Response) => {
   proxyHandler(req, res);
 });
 
-const server = app.listen(PROXY_PORT, () => {
+const server = app.listen(PROXY_PORT, async () => {
+  await fetchActiveModel();
+  const active = getActiveModel();
+  if (active) {
+    console.log(`Active model: ${active}`);
+  }
   console.log(`Proxy server ready on port ${PROXY_PORT}`);
 });
+
+setInterval(async () => {
+  await fetchActiveModel();
+}, 60000);
 
 process.on('SIGINT', () => {
   console.log('\n\nShutting down...\n');

@@ -6,3 +6,5 @@ dist/
 data/
 .idea/
 .playwright-cli/
+test-results/
+.openfox/dev-dev.json

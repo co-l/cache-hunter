@@ -4,171 +4,36 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HTML Tree Visualizer</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      background: #0a0a0a;
-      font-family: monospace;
-      font-size: 10px;
-      color: #ccc;
-      height: 100vh;
-      overflow: hidden;
-    }
-
-    #container {
-      width: 100%;
-      height: 100%;
-      overflow: auto;
-      position: relative;
-    }
-
-    #grid-wrapper {
-      display: inline-block;
-      min-width: 100%;
-      padding-bottom: 20px;
-    }
-
-    table {
-      border-collapse: collapse;
-      table-layout: fixed;
-    }
-
-    th, td {
-      border: 1px solid #444;
-      padding: 2px 5px;
-      min-width: 4ch;
-      text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      height: 24px;
-    }
-
-    th {
-      background: #e67e00;
-      color: #0a0a0a;
-      font-weight: bold;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-
-    th.hash-cell {
-      z-index: 20;
-    }
-
-    td.hash-cell {
-      background: #0a0a0a;
-    }
-
-    td.diff-cell {
-      background: #660000;
-      color: #ff6666;
-    }
-
-    td.content-cell {
-      background: #111;
-      text-align: left;
-      min-width: 50ch;
-      max-width: 50ch;
-      position: sticky;
-      right: 0;
-      z-index: 5;
-    }
-
-    th.content-cell {
-      background: #e67e00;
-      color: #0a0a0a;
-      position: sticky;
-      right: 0;
-      z-index: 25;
-    }
-
-    #loading {
-      padding: 20px;
-      color: #e67e00;
-    }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="container">
     <div id="grid-wrapper">
       <div id="loading">Loading...</div>
     </div>
+    <div id="status-bar"></div>
   </div>
 
-  <script>
-    async function init() {
-      try {
-        const response = await fetch('tree-data.json');
-        const data = await response.json();
+  <div id="modal">
+    <div id="modal-content">
+      <div id="modal-header">
+        <span id="modal-hash"></span>
+        <button id="modal-close">&times;</button>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
 
-        const lines = data.lines;
-        const hashMap = data.hash_map;
+  <div id="diff-panel">
+    <div id="diff-content">
+      <div id="diff-header">
+        <span id="diff-title"></span>
+        <button id="diff-close">&times;</button>
+      </div>
+      <div id="diff-body"></div>
+    </div>
+  </div>
 
-        if (!lines || lines.length === 0) {
-          document.getElementById('loading').textContent = 'No data found';
-          return;
-        }
-
-        const headerRow = lines[0];
-        const dataRows = lines.slice(1);
-        const numCols = headerRow.length;
-
-        let html = '<table>';
-        html += '<thead><tr>';
-        for (let c = 0; c < numCols; c++) {
-          html += `<th class="hash-cell">${headerRow[c]}</th>`;
-        }
-        html += '<th class="content-cell">Content</th>';
-        html += '</tr></thead>';
-
-        html += '<tbody>';
-        for (let r = 0; r < dataRows.length; r++) {
-          const row = dataRows[r];
-          html += '<tr>';
-
-          let lastHash = null;
-          for (let c = 0; c < numCols; c++) {
-            const cellHash = row[c];
-            let cellClass = 'hash-cell';
-            let cellText = cellHash || '';
-
-            if (c > 0 && cellHash && cellHash.trim() && lastHash && lastHash.trim() && cellHash !== lastHash) {
-              cellClass += ' diff-cell';
-            }
-
-            if (cellHash && cellHash.trim()) {
-              lastHash = cellHash;
-            }
-
-            html += `<td class="${cellClass}">${cellText}</td>`;
-          }
-
-          const lastValidHash = [...row.slice(0, numCols)].reverse().find(h => h && h.trim() && hashMap[h]);
-          let contentText = '';
-          if (lastValidHash) {
-            contentText = hashMap[lastValidHash].substring(0, 40);
-          }
-          html += `<td class="content-cell">${contentText}</td>`;
-
-          html += '</tr>';
-        }
-        html += '</tbody></table>';
-
-        document.getElementById('grid-wrapper').innerHTML = html;
-
-      } catch (error) {
-        document.getElementById('loading').textContent = 'Error loading data: ' + error.message;
-        console.error(error);
-      }
-    }
-
-    init();
-  </script>
+  <script src="app.js"></script>
 </body>
 </html>

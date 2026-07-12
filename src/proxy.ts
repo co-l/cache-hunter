@@ -3,6 +3,26 @@ import { IncomingMessage, ServerResponse, request as httpRequest, IncomingHttpHe
 const VLLM_HOST = '192.168.1.223';
 const VLLM_PORT = 8000;
 
+let activeModel: string | null = null;
+
+export async function fetchActiveModel(): Promise<string | null> {
+  try {
+    const res = await fetch(`http://${VLLM_HOST}:${VLLM_PORT}/v1/models`);
+    const data = await res.json() as { data: Array<{ id: string }> };
+    if (data.data && data.data.length > 0) {
+      activeModel = data.data[0].id;
+      return activeModel;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+export function getActiveModel(): string | null {
+  return activeModel;
+}
+
 export interface ProxyResult {
   requestId: string;
   request: {
@@ -89,6 +109,18 @@ export function createProxyHandler(config?: ProxyConfig): ProxyHandler {
     req.on('end', () => {
       const cacheSalt = extractCacheSalt(requestBody);
       const requestHeaders = getHeaderObject(req.headers);
+
+      if (activeModel && requestBody) {
+        try {
+          const body = JSON.parse(requestBody);
+          if (body.model && body.model !== activeModel) {
+            body.model = activeModel;
+            requestBody = JSON.stringify(body);
+          }
+        } catch {
+          // ignore parse errors
+        }
+      }
 
       const targetPath = req.url || '/';
       const targetUrl = `http://${vllmHost}:${vllmPort}${targetPath}`;
