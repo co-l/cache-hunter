@@ -1,6 +1,7 @@
 export interface ParsedRequest {
   messages: Array<{ role: string; content: string }>;
   tools: any[];
+  reasoningEffort?: string;
 }
 
 export function parseRequestBody(body: string, path: string): ParsedRequest {
@@ -18,7 +19,7 @@ export function parseRequestBody(body: string, path: string): ParsedRequest {
         role: item.role,
         content: item.content?.[0]?.text || '',
       }));
-    return { messages, tools: parsed.tools || [] };
+    return { messages, tools: parsed.tools || [], reasoningEffort: parsed.reasoning_effort };
   }
 
   if (path === '/v1/chat/completions') {
@@ -28,6 +29,7 @@ export function parseRequestBody(body: string, path: string): ParsedRequest {
         content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
       })),
       tools: parsed.tools || [],
+      reasoningEffort: parsed.reasoning_effort,
     };
   }
 

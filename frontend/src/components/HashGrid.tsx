@@ -178,7 +178,7 @@ export function HashGrid({ data, onDeleteColumn, autoScroll }: { data: TreeData;
                     );
                   })}
                   <td className="content-cell">
-                    {lastHash ? contentExcerpt(lastHash) : ''}
+                    {ri === 0 ? 'Reasoning Effort' : ri === 1 ? 'Tools' : lastHash ? contentExcerpt(lastHash) : ''}
                   </td>
                 </tr>
               );

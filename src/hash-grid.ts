@@ -74,6 +74,7 @@ export function buildTreeData(
     prompt_tokens?: number;
     completion_tokens?: number;
     total_tokens?: number;
+    reasoningEffort?: string;
   }>,
   includeFullCompletions?: boolean
 ): TreeData {
@@ -88,7 +89,8 @@ export function buildTreeData(
   });
 
   const header = buildHeaderLabels(completions);
-  const allRows = [toolsHashes, ...grid.cells];
+  const effortRow = completions.map(c => c.reasoningEffort || '');
+  const allRows = [effortRow, toolsHashes, ...grid.cells];
   const lines = [header, ...allRows.map(row => row.map(h => h || '    '))];
 
   return {

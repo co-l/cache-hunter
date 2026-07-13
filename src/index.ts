@@ -42,6 +42,10 @@ server.listen(WEB_PORT, () => {
   console.log(`Proxy port: ${PROXY_PORT}`);
   console.log(`Default target: ${DEFAULT_TARGET_HOST}:${DEFAULT_TARGET_PORT}`);
   console.log(`Data directory: ${DATA_DIR}`);
+
+  engine.start().catch((err: Error) => {
+    console.error(`Failed to start proxy: ${err.message}`);
+  });
 });
 
 function shutdown() {

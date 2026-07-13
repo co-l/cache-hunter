@@ -206,6 +206,7 @@ export async function getSessionHashGrid(id: string): Promise<any> {
       messages: parsed.messages,
       tools: parsed.tools,
       path,
+      reasoningEffort: parsed.reasoningEffort,
     };
   });
 

@@ -11,13 +11,15 @@
 }
 
 .hash-grid {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
 }
 
 .hash-grid th,
 .hash-grid td {
-  border: 1px solid #444;
+  border-right: 1px solid #444;
+  border-bottom: 1px solid #444;
   padding: 2px 5px;
   min-width: 4ch;
   text-align: center;
@@ -34,6 +36,37 @@
   top: 0;
   z-index: 10;
   cursor: pointer;
+}
+
+.hash-grid tbody tr:nth-child(1) td,
+.hash-grid tbody tr:nth-child(2) td,
+.hash-grid tbody tr:nth-child(3) td {
+  position: sticky;
+  z-index: 9;
+}
+
+.hash-grid tbody tr:nth-child(1) td {
+  top: 24px;
+  background-image: linear-gradient(#444, #444);
+  background-size: 100% 1px;
+  background-position: bottom;
+  background-repeat: no-repeat;
+  background-origin: border-box;
+  overflow: visible;
+}
+
+.hash-grid tbody tr:nth-child(2) td {
+  top: 48px;
+  background-image: linear-gradient(#444, #444);
+  background-size: 100% 1px;
+  background-position: bottom;
+  background-repeat: no-repeat;
+  background-origin: border-box;
+  overflow: visible;
+}
+
+.hash-grid tbody tr:nth-child(3) td {
+  top: 72px;
 }
 
 .hash-grid th.col-diff {

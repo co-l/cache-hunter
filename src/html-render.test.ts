@@ -68,7 +68,7 @@ test('buildTreeData includes tool content in hash_map', () => {
   ];
 
   const data = buildTreeData(completions);
-  const toolHash = data.lines[1][0];
+  const toolHash = data.lines[2][0];
   expect(data.hash_map[toolHash]).toContain('myTool');
   expect(data.lines[0][0]).toBe('C  0');
 });
@@ -83,10 +83,11 @@ test('buildTreeData produces correct line structure', () => {
   ];
 
   const data = buildTreeData(completions);
-  // lines: [header, tools_row, msg0_row, msg1_row]
-  expect(data.lines.length).toBe(4);
+  // lines: [header, effort_row, tools_row, msg0_row, msg1_row]
+  expect(data.lines.length).toBe(5);
   expect(data.lines[0].length).toBe(1);
   expect(data.lines[1].length).toBe(1);
   expect(data.lines[2].length).toBe(1);
   expect(data.lines[3].length).toBe(1);
+  expect(data.lines[4].length).toBe(1);
 });
