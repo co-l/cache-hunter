@@ -134,6 +134,48 @@ export function getSessionDbPath(id: string): string | null {
   return join(DATA_DIR, session.filename);
 }
 
+export async function deleteSessionCall(id: string, callIndex: number): Promise<boolean> {
+  const manifest = readManifest()
+  const session = manifest.sessions.find(s => s.id === id)
+  if (!session) return false
+
+  const dbPath = join(DATA_DIR, session.filename)
+  if (!existsSync(dbPath)) return false
+
+  const SQL = await getSqlJs()
+  const data = readFileSync(dbPath)
+  const db = new SQL.Database(data)
+
+  const idsResult = db.exec(`
+    SELECT r.id FROM requests r
+    JOIN responses resp ON r.id = resp.request_id
+    WHERE r.path IN ('/v1/chat/completions', '/v1/responses')
+    ORDER BY r.timestamp
+  `)
+
+  if (idsResult.length === 0 || idsResult[0].values.length <= callIndex) {
+    db.close()
+    return false
+  }
+
+  const requestId = idsResult[0].values[callIndex][0] as string
+
+  db.run('DELETE FROM responses WHERE request_id = ?', [requestId])
+  db.run('DELETE FROM requests WHERE id = ?', [requestId])
+
+  const countResult = db.exec('SELECT COUNT(*) as cnt FROM requests')
+  if (countResult.length > 0 && countResult[0].values.length > 0) {
+    session.request_count = countResult[0].values[0][0] as number
+  }
+
+  const buf = Buffer.from(db.export())
+  writeFileSync(dbPath, buf)
+  db.close()
+
+  writeManifest(manifest)
+  return true
+}
+
 export async function getSessionHashGrid(id: string): Promise<any> {
   const dbPath = getSessionDbPath(id);
   if (!dbPath) return null;

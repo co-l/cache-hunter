@@ -288,3 +288,18 @@ button.small {
 .status-count {
   color: var(--text-primary);
 }
+
+.auto-scroll-label {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--text-primary);
+  user-select: none;
+  font-size: 11px;
+}
+
+.auto-scroll-label input {
+  margin: 0;
+}

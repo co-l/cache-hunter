@@ -9,7 +9,7 @@ interface DiffLine {
   content: string;
 }
 
-export function HashGrid({ data }: { data: TreeData }) {
+export function HashGrid({ data, onDeleteColumn, autoScroll }: { data: TreeData; onDeleteColumn?: (colIndex: number) => void; autoScroll?: boolean }) {
   const { lines, hash_map } = data;
   const header = lines[0];
   const dataRows = lines.slice(1);
@@ -34,6 +34,14 @@ export function HashGrid({ data }: { data: TreeData }) {
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, []);
+
+  useEffect(() => {
+    if (autoScroll && gridRef.current) {
+      const el = gridRef.current
+      el.scrollLeft = el.scrollWidth - el.clientWidth
+      el.scrollTop = el.scrollHeight - el.clientHeight
+    }
+  }, [data, autoScroll])
 
   const toggleExclude = useCallback((colIdx: number) => {
     setExcludedCols(prev => {
@@ -61,6 +69,13 @@ export function HashGrid({ data }: { data: TreeData }) {
     return !!prevHash && cellHash !== prevHash;
   }, [dataRows, numCols, excludedCols]);
 
+  const colHasDiff = useCallback((colIdx: number): boolean => {
+    for (let ri = 0; ri < dataRows.length; ri++) {
+      if (isDiffCell(ri, colIdx)) return true
+    }
+    return false
+  }, [dataRows, isDiffCell])
+
   const handleCellClick = useCallback((hash: string, event: React.MouseEvent) => {
     if (event.ctrlKey || event.metaKey) {
       event.stopPropagation();
@@ -84,6 +99,12 @@ export function HashGrid({ data }: { data: TreeData }) {
     }
   }, [compareA, compareB, diffOpen]);
 
+  const handleDeleteColumn = useCallback((colIdx: number, label: string) => {
+    if (window.confirm(`Delete call "${label}" permanently? This cannot be undone.`)) {
+      onDeleteColumn?.(colIdx)
+    }
+  }, [onDeleteColumn])
+
   const contentExcerpt = useCallback((hash: string): string => {
     const val = hash_map[hash];
     if (!val) return '';
@@ -105,16 +126,30 @@ export function HashGrid({ data }: { data: TreeData }) {
         <table className="hash-grid">
           <thead>
             <tr>
-              {header.map((label, ci) => (
-                <th
-                  key={ci}
-                  className={`hash-cell ${excludedCols.has(ci) ? 'excluded' : ''}`}
-                  onClick={() => toggleExclude(ci)}
-                  title="Click to exclude this call from diff comparison"
-                >
-                  {label}
-                </th>
-              ))}
+              {header.map((label, ci) => {
+                const hasDiff = colHasDiff(ci)
+                let thCls = 'hash-cell'
+                if (excludedCols.has(ci)) thCls += ' excluded'
+                if (hasDiff) thCls += ' col-diff'
+                else thCls += ' col-match'
+                return (
+                  <th
+                    key={ci}
+                    className={thCls}
+                    onClick={() => toggleExclude(ci)}
+                    title="Click to exclude this call from diff comparison"
+                  >
+                    {label}
+                    <button
+                      className="col-delete-btn"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteColumn(ci, label) }}
+                      title="Delete this call permanently"
+                    >
+                      ✕
+                    </button>
+                  </th>
+                )
+              })}
               <th className="content-cell">Content</th>
             </tr>
           </thead>

@@ -14,6 +14,7 @@ export default function App() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [gridData, setGridData] = useState<TreeData | null>(null);
   const [gridLoading, setGridLoading] = useState(false);
+  const [autoScroll, setAutoScroll] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -273,8 +274,19 @@ export default function App() {
 
         <main className="content">
           {gridLoading && <div className="loading">Loading...</div>}
-          {!gridLoading && gridData && (
-            <HashGrid data={gridData} />
+          {!gridLoading && gridData && selectedSessionId && (
+            <HashGrid
+              data={gridData}
+              autoScroll={autoScroll}
+              onDeleteColumn={async (colIndex) => {
+                try {
+                  await api.deleteSessionCall(selectedSessionId, colIndex)
+                  loadGrid(selectedSessionId)
+                } catch (err: any) {
+                  showError(err.message || 'Failed to delete call')
+                }
+              }}
+            />
           )}
           {!gridLoading && !gridData && (
             <div className="empty-state centered">
@@ -307,6 +319,14 @@ export default function App() {
             </span>
           </>
         )}
+        <label className="auto-scroll-label">
+          <input
+            type="checkbox"
+            checked={autoScroll}
+            onChange={e => setAutoScroll(e.target.checked)}
+          />
+          Auto-scroll view
+        </label>
       </footer>
     </div>
   );

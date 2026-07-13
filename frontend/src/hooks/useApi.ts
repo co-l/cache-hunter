@@ -58,4 +58,6 @@ export const api = {
   listSessions: () => request<{ sessions: SessionMeta[] }>('/sessions'),
   getSessionGrid: (id: string) => request<TreeData>(`/sessions/${id}`),
   deleteSession: (id: string) => request<{ deleted: boolean }>(`/sessions/${id}`, { method: 'DELETE' }),
+  deleteSessionCall: (id: string, index: number) =>
+    request<{ deleted: boolean }>(`/sessions/${id}/calls/${index}`, { method: 'DELETE' }),
 };

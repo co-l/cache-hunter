@@ -117,6 +117,16 @@ describe('API Endpoints', () => {
     expect(body.deleted).toBe(true);
   });
 
+  it('DELETE /api/sessions/:id/calls/:index returns 400 for invalid index', async () => {
+    const { status } = await fetchJson(`${baseUrl}/api/sessions/test/calls/abc`, { method: 'DELETE' });
+    expect(status).toBe(400);
+  });
+
+  it('DELETE /api/sessions/:id/calls/:index returns 404 for unknown session', async () => {
+    const { status } = await fetchJson(`${baseUrl}/api/sessions/nonexistent/calls/0`, { method: 'DELETE' });
+    expect(status).toBe(404);
+  });
+
   it('full lifecycle: proxy start → capture start → capture stop → proxy stop', async () => {
     let res;
 

@@ -28,7 +28,6 @@
 }
 
 .hash-grid th {
-  background: var(--accent);
   color: #0a0a0a;
   font-weight: bold;
   position: sticky;
@@ -37,9 +36,41 @@
   cursor: pointer;
 }
 
+.hash-grid th.col-diff {
+  background: var(--diff-red);
+  color: #ddd;
+}
+
+.hash-grid th.col-match {
+  background: #2a5a2a;
+}
+
 .hash-grid th.excluded {
-  opacity: 0.35;
+  opacity: 0.45;
   text-decoration: line-through;
+}
+
+.col-delete-btn {
+  display: none;
+  margin-left: 6px;
+  padding: 0 3px;
+  background: none;
+  border: 1px solid transparent;
+  color: #0a0a0a;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+
+.hash-grid th:hover .col-delete-btn {
+  display: inline;
+}
+
+.col-delete-btn:hover {
+  background: rgba(0,0,0,0.2);
+  border-color: rgba(255,255,255,0.3);
 }
 
 .hash-grid td.hash-cell {
@@ -104,6 +135,7 @@
   align-items: center;
   flex-wrap: wrap;
 }
+
 
 .hint kbd {
   display: inline-block;

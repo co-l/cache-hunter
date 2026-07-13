@@ -8,6 +8,7 @@ import {
   getActiveSession,
   finalizeSession,
   deleteSession,
+  deleteSessionCall,
   getSessionDbPath,
   setDataDir,
 } from './session-manager.js';
@@ -87,4 +88,56 @@ describe('SessionManager', () => {
     const path = getSessionDbPath('nonexistent');
     expect(path).toBeNull();
   });
+
+  it('should delete a specific call by index', async () => {
+    const session = createSession('localhost', 8000, 'test-model')
+    const dbPath = getSessionDbPath(session.id)!
+
+    const initSqlJs = (await import('sql.js')).default
+    const SQL = await initSqlJs()
+    const db = new SQL.Database()
+
+    db.run(`CREATE TABLE IF NOT EXISTS requests (
+      id TEXT PRIMARY KEY, timestamp INTEGER NOT NULL, method TEXT NOT NULL,
+      path TEXT NOT NULL, headers TEXT NOT NULL, body TEXT NOT NULL,
+      cache_salt TEXT, client_ip TEXT
+    )`)
+    db.run(`CREATE TABLE IF NOT EXISTS responses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, request_id TEXT NOT NULL,
+      timestamp INTEGER NOT NULL, status_code INTEGER NOT NULL,
+      headers TEXT NOT NULL, body TEXT NOT NULL, duration_ms INTEGER NOT NULL,
+      prompt_tokens INTEGER, completion_tokens INTEGER, total_tokens INTEGER
+    )`)
+
+    db.run("INSERT INTO requests (id, timestamp, method, path, headers, body) VALUES ('r1', 100, 'POST', '/v1/chat/completions', '{}', '{\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}')")
+    db.run("INSERT INTO responses (request_id, timestamp, status_code, headers, body, duration_ms) VALUES ('r1', 110, 200, '{}', '{}', 10)")
+    db.run("INSERT INTO requests (id, timestamp, method, path, headers, body) VALUES ('r2', 200, 'POST', '/v1/chat/completions', '{}', '{\"messages\":[{\"role\":\"user\",\"content\":\"bye\"}]}')")
+    db.run("INSERT INTO responses (request_id, timestamp, status_code, headers, body, duration_ms) VALUES ('r2', 210, 200, '{}', '{}', 10)")
+
+    const buf = Buffer.from(db.export())
+    const { writeFileSync } = await import('fs')
+    writeFileSync(dbPath, buf)
+    db.close()
+
+    const ok = await deleteSessionCall(session.id, 0)
+    expect(ok).toBe(true)
+
+    const data = (await import('fs')).readFileSync(dbPath)
+    const db2 = new SQL.Database(data)
+    const remaining = db2.exec('SELECT id FROM requests ORDER BY timestamp')
+    db2.close()
+
+    expect(remaining[0].values).toEqual([['r2']])
+  })
+
+  it('should return false for out-of-bounds call index', async () => {
+    const session = createSession('localhost', 8000, null)
+    const ok = await deleteSessionCall(session.id, 99)
+    expect(ok).toBe(false)
+  })
+
+  it('should return false for non-existent session', async () => {
+    const ok = await deleteSessionCall('nonexistent', 0)
+    expect(ok).toBe(false)
+  })
 });
