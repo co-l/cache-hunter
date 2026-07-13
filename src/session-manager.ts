@@ -147,10 +147,9 @@ export async function deleteSessionCall(id: string, callIndex: number): Promise<
   const db = new SQL.Database(data)
 
   const idsResult = db.exec(`
-    SELECT r.id FROM requests r
-    LEFT JOIN responses resp ON r.id = resp.request_id
-    WHERE r.path IN ('/v1/chat/completions', '/v1/responses')
-    ORDER BY r.timestamp
+    SELECT id FROM requests
+    WHERE path IN ('/v1/chat/completions', '/v1/responses')
+    ORDER BY timestamp
   `)
 
   if (idsResult.length === 0 || idsResult[0].values.length <= callIndex) {
@@ -160,7 +159,6 @@ export async function deleteSessionCall(id: string, callIndex: number): Promise<
 
   const requestId = idsResult[0].values[callIndex][0] as string
 
-  db.run('DELETE FROM responses WHERE request_id = ?', [requestId])
   db.run('DELETE FROM requests WHERE id = ?', [requestId])
 
   const countResult = db.exec('SELECT COUNT(*) as cnt FROM requests')
@@ -185,11 +183,10 @@ export async function getSessionHashGrid(id: string): Promise<any> {
   const db = new SQL.Database(data);
 
   const query = `
-    SELECT r.body, resp.body, resp.prompt_tokens, r.path, r.timestamp
-    FROM requests r
-    LEFT JOIN responses resp ON r.id = resp.request_id
-    WHERE r.path IN ('/v1/chat/completions', '/v1/responses')
-    ORDER BY r.timestamp
+    SELECT body, path, timestamp
+    FROM requests
+    WHERE path IN ('/v1/chat/completions', '/v1/responses')
+    ORDER BY timestamp
   `;
 
   const results = db.exec(query);
@@ -198,27 +195,17 @@ export async function getSessionHashGrid(id: string): Promise<any> {
   if (results.length === 0 || results[0].values.length === 0) return null;
 
   const { buildTreeData } = await import('./hash-grid.js');
-  const { parseRequestBody, extractTokensFromResponse } = await import('./parse-api.js');
+  const { parseRequestBody } = await import('./parse-api.js');
 
   const completions = results[0].values.map((row: any[]) => {
     const reqBody = row[0] as string;
-    const resBody = row[1] as string | null;
-    const dbPromptTokens = row[2] as number | null;
-    const path = row[3] as string;
+    const path = row[1] as string;
     const parsed = parseRequestBody(reqBody, path);
-
-    let tokens: any = {};
-    if (dbPromptTokens == null && resBody != null) {
-      tokens = extractTokensFromResponse(resBody, path);
-    }
 
     return {
       messages: parsed.messages,
       tools: parsed.tools,
       path,
-      prompt_tokens: tokens.prompt_tokens ?? dbPromptTokens ?? undefined,
-      completion_tokens: tokens.completion_tokens,
-      total_tokens: tokens.total_tokens,
     };
   });
 

@@ -34,41 +34,4 @@ export function parseRequestBody(body: string, path: string): ParsedRequest {
   return { messages: [], tools: [] };
 }
 
-export function extractSSETokenUsage(body: string): {
-  prompt_tokens?: number;
-  completion_tokens?: number;
-  total_tokens?: number;
-} {
-  const lines = body.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i] === 'event: response.completed') {
-      const dataLine = lines[i + 1];
-      if (dataLine && dataLine.startsWith('data: ')) {
-        try {
-          const data = JSON.parse(dataLine.slice(6));
-          const usage = data.usage;
-          if (usage) {
-            return {
-              prompt_tokens: usage.input_tokens,
-              completion_tokens: usage.output_tokens,
-              total_tokens: usage.total_tokens,
-            };
-          }
-        } catch {
-          return {};
-        }
-      }
-    }
-  }
-  return {};
-}
 
-export function extractTokensFromResponse(
-  responseBody: string,
-  path: string,
-): { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } {
-  if (path === '/v1/responses') {
-    return extractSSETokenUsage(responseBody);
-  }
-  return {};
-}

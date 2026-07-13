@@ -102,17 +102,9 @@ describe('SessionManager', () => {
       path TEXT NOT NULL, headers TEXT NOT NULL, body TEXT NOT NULL,
       cache_salt TEXT, client_ip TEXT
     )`)
-    db.run(`CREATE TABLE IF NOT EXISTS responses (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, request_id TEXT NOT NULL,
-      timestamp INTEGER NOT NULL, status_code INTEGER NOT NULL,
-      headers TEXT NOT NULL, body TEXT NOT NULL, duration_ms INTEGER NOT NULL,
-      prompt_tokens INTEGER, completion_tokens INTEGER, total_tokens INTEGER
-    )`)
 
     db.run("INSERT INTO requests (id, timestamp, method, path, headers, body) VALUES ('r1', 100, 'POST', '/v1/chat/completions', '{}', '{\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}')")
-    db.run("INSERT INTO responses (request_id, timestamp, status_code, headers, body, duration_ms) VALUES ('r1', 110, 200, '{}', '{}', 10)")
     db.run("INSERT INTO requests (id, timestamp, method, path, headers, body) VALUES ('r2', 200, 'POST', '/v1/chat/completions', '{}', '{\"messages\":[{\"role\":\"user\",\"content\":\"bye\"}]}')")
-    db.run("INSERT INTO responses (request_id, timestamp, status_code, headers, body, duration_ms) VALUES ('r2', 210, 200, '{}', '{}', 10)")
 
     const buf = Buffer.from(db.export())
     const { writeFileSync } = await import('fs')
