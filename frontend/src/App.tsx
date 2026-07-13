@@ -60,7 +60,7 @@ export default function App() {
   const activeSessionId = getActiveSessionId();
 
   useWebSocket({
-    'request:logged': () => {
+    'request:received': () => {
       if (selectedSessionId && selectedSessionId === activeSessionId) {
         loadGrid(selectedSessionId);
       }

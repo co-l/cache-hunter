@@ -2,15 +2,14 @@ import initSqlJs from 'sql.js'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import type { ProxyRequestData, ProxyResponseData } from './proxy-engine.js'
+import type { ProxyRequestData } from './proxy-engine.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 interface RequestRecord extends ProxyRequestData {}
-interface ResponseRecord extends ProxyResponseData {}
 
 export class AsyncLogger {
-  private queue: Array<{ type: 'request'; record: RequestRecord } | { type: 'response'; record: ResponseRecord }> = []
+  private queue: RequestRecord[] = []
   private flushing = false
   private flushInterval: NodeJS.Timeout
   private dbPath: string
@@ -26,13 +25,7 @@ export class AsyncLogger {
   }
 
   logRequest(request: RequestRecord): void {
-    this.queue.push({ type: 'request', record: request })
-    process.stdout.write('.')
-    this.flush()
-  }
-
-  logResponse(response: ResponseRecord): void {
-    this.queue.push({ type: 'response', record: response })
+    this.queue.push(request)
     process.stdout.write('.')
     this.flush()
   }
@@ -61,38 +54,20 @@ export class AsyncLogger {
       db.run('BEGIN TRANSACTION')
 
       for (const entry of entries) {
-        if (entry.type === 'request') {
-          db.run(
-            `INSERT INTO requests (id, timestamp, method, path, headers, body, cache_salt, client_ip)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              entry.record.id,
-              entry.record.timestamp,
-              entry.record.method,
-              entry.record.path,
-              entry.record.headers,
-              entry.record.body,
-              entry.record.cache_salt,
-              entry.record.client_ip,
-            ]
-          )
-        } else {
-          db.run(
-            `INSERT INTO responses (request_id, timestamp, status_code, headers, body, duration_ms, prompt_tokens, completion_tokens, total_tokens)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              entry.record.request_id,
-              entry.record.timestamp,
-              entry.record.status_code,
-              entry.record.headers,
-              entry.record.body,
-              entry.record.duration_ms,
-              entry.record.prompt_tokens ?? null,
-              entry.record.completion_tokens ?? null,
-              entry.record.total_tokens ?? null,
-            ]
-          )
-        }
+        db.run(
+          `INSERT INTO requests (id, timestamp, method, path, headers, body, cache_salt, client_ip)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            entry.id,
+            entry.timestamp,
+            entry.method,
+            entry.path,
+            entry.headers,
+            entry.body,
+            entry.cache_salt,
+            entry.client_ip,
+          ]
+        )
       }
 
       db.run('COMMIT')

@@ -18,25 +18,11 @@ export interface ProxyRequestData {
   client_ip: string
 }
 
-export interface ProxyResponseData {
-  request_id: string
-  timestamp: number
-  status_code: number
-  headers: string
-  body: string
-  duration_ms: number
-  prompt_tokens?: number
-  completion_tokens?: number
-  total_tokens?: number
-}
-
 export declare interface ProxyEngine {
   on(event: 'request', listener: (data: { requestId: string; request: ProxyRequestData }) => void): this
-  on(event: 'response', listener: (data: { requestId: string; response: ProxyResponseData }) => void): this
   on(event: 'error', listener: (error: Error) => void): this
   on(event: 'start' | 'stop' | 'captureStart' | 'captureStop', listener: () => void): this
   emit(event: 'request', data: { requestId: string; request: ProxyRequestData }): boolean
-  emit(event: 'response', data: { requestId: string; response: ProxyResponseData }): boolean
   emit(event: 'error', error: Error): boolean
   emit(event: 'start' | 'stop' | 'captureStart' | 'captureStop'): boolean
 }
@@ -134,9 +120,6 @@ export class ProxyEngine extends EventEmitter {
     const clientIp = req.socket.remoteAddress || 'unknown'
 
     let requestBody = ''
-    let responseBody = ''
-    let responseHeaders: IncomingHttpHeaders = {}
-    let responseStatusCode = 0
 
     req.on('data', (chunk) => { requestBody += chunk })
 
@@ -180,8 +163,8 @@ export class ProxyEngine extends EventEmitter {
       })
 
       proxyReq.on('response', (proxyRes) => {
-        responseStatusCode = proxyRes.statusCode || 0
-        responseHeaders = proxyRes.headers
+        const responseStatusCode = proxyRes.statusCode || 0
+        const responseHeaders = proxyRes.headers
 
         res.statusCode = responseStatusCode
         for (const [key, value] of Object.entries(responseHeaders)) {
@@ -191,65 +174,26 @@ export class ProxyEngine extends EventEmitter {
 
         const isStreaming = responseHeaders['content-type']?.toString().includes('text/event-stream')
 
-        const onEnd = () => {
-          const endTime = Date.now()
-          const durationMs = endTime - startTime
-          const usage = this.extractUsage(responseBody)
-          const responseHeadersJson = JSON.stringify(responseHeaders)
-
-          const responseData: ProxyResponseData = {
-            request_id: requestId,
-            timestamp: endTime,
-            status_code: responseStatusCode,
-            headers: responseHeadersJson,
-            body: responseBody,
-            duration_ms: durationMs,
-            ...usage,
-          }
-
-          res.end()
-          if (this._capturing) {
-            this.emit('response', { requestId, response: responseData })
-          }
-        }
-
         if (isStreaming) {
-          proxyRes.on('data', (chunk) => { responseBody += chunk.toString(); res.write(chunk) })
-          proxyRes.on('end', onEnd)
+          proxyRes.on('data', (chunk) => { res.write(chunk) })
+          proxyRes.on('end', () => { res.end() })
         } else {
+          let responseBody = ''
           proxyRes.on('data', (chunk) => { responseBody += chunk.toString() })
           proxyRes.on('end', () => {
             res.write(responseBody)
-            onEnd()
+            res.end()
           })
         }
       })
 
       proxyReq.on('error', (error) => {
-        const endTime = Date.now()
-        const durationMs = endTime - startTime
-
         console.error(`[Proxy] Error forwarding request: ${error.message}`)
 
         res.statusCode = 502
         res.setHeader('Content-Type', 'application/json')
         res.setHeader('x-proxy-request-id', requestId)
-        const errorBody = JSON.stringify({ error: 'Bad Gateway', message: error.message })
-        res.end(errorBody)
-
-        if (this._capturing) {
-          this.emit('response', {
-            requestId,
-            response: {
-              request_id: requestId,
-              timestamp: endTime,
-              status_code: 502,
-              headers: JSON.stringify({ 'content-type': 'application/json' }),
-              body: errorBody,
-              duration_ms: durationMs,
-            },
-          })
-        }
+        res.end(JSON.stringify({ error: 'Bad Gateway', message: error.message }))
       })
 
       proxyReq.write(requestBody)
@@ -262,16 +206,5 @@ export class ProxyEngine extends EventEmitter {
       const parsed = JSON.parse(body)
       return parsed.cache_salt || null
     } catch { return null }
-  }
-
-  private extractUsage(body: string): { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } {
-    try {
-      const parsed = JSON.parse(body)
-      return {
-        prompt_tokens: parsed.usage?.prompt_tokens,
-        completion_tokens: parsed.usage?.completion_tokens,
-        total_tokens: parsed.usage?.total_tokens,
-      }
-    } catch { return {} }
   }
 }

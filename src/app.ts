@@ -27,15 +27,6 @@ export function createApp(engine: ProxyEngine, dataDir: string = DATA_DIR, broad
     }
     if (broadcaster) {
       broadcaster.broadcast('request:received', { requestId: evt.requestId })
-    }
-  })
-
-  engine.on('response', async (evt) => {
-    if (currentLogger) {
-      currentLogger.logResponse(evt.response)
-    }
-    if (broadcaster) {
-      broadcaster.broadcast('request:logged', { requestId: evt.requestId, response: evt.response })
       broadcaster.broadcast('session:updated', { sessionId: currentSessionId })
     }
   })

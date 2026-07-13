@@ -60,13 +60,11 @@ describe('ProxyEngine', () => {
     expect(events).toEqual(['start', 'stop'])
   })
 
-  it('should emit request event when body is received and response event when done', async () => {
+  it('should emit request event when body is received', async () => {
     const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0 })
     const requestEvents: any[] = []
-    const responseEvents: any[] = []
 
     engine.on('request', (evt) => requestEvents.push(evt))
-    engine.on('response', (evt) => responseEvents.push(evt))
 
     await engine.start()
     engine.startCapture()
@@ -84,13 +82,8 @@ describe('ProxyEngine', () => {
             try {
               expect(res.headers['x-proxy-request-id']).toBeDefined()
               expect(requestEvents.length).toBe(1)
-              expect(responseEvents.length).toBe(1)
               expect(requestEvents[0].request.method).toBe('POST')
               expect(requestEvents[0].request.path).toBe('/v1/chat/completions')
-              expect(responseEvents[0].response.status_code).toBe(200)
-              expect(responseEvents[0].response.prompt_tokens).toBe(10)
-              expect(responseEvents[0].response.completion_tokens).toBe(20)
-              expect(responseEvents[0].response.total_tokens).toBe(30)
               resolve()
             } catch (error) { reject(error) }
           })
@@ -104,13 +97,11 @@ describe('ProxyEngine', () => {
     await engine.stop()
   })
 
-  it('should not emit request or response events when not capturing', async () => {
+  it('should not emit request event when not capturing', async () => {
     const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0 })
     const requestEvents: any[] = []
-    const responseEvents: any[] = []
 
     engine.on('request', (evt) => requestEvents.push(evt))
-    engine.on('response', (evt) => responseEvents.push(evt))
 
     await engine.start()
 
@@ -126,7 +117,6 @@ describe('ProxyEngine', () => {
           res.on('end', () => {
             try {
               expect(requestEvents.length).toBe(0)
-              expect(responseEvents.length).toBe(0)
               resolve()
             } catch (error) { reject(error) }
           })

@@ -148,7 +148,7 @@ export async function deleteSessionCall(id: string, callIndex: number): Promise<
 
   const idsResult = db.exec(`
     SELECT r.id FROM requests r
-    JOIN responses resp ON r.id = resp.request_id
+    LEFT JOIN responses resp ON r.id = resp.request_id
     WHERE r.path IN ('/v1/chat/completions', '/v1/responses')
     ORDER BY r.timestamp
   `)
@@ -187,7 +187,7 @@ export async function getSessionHashGrid(id: string): Promise<any> {
   const query = `
     SELECT r.body, resp.body, resp.prompt_tokens, r.path, r.timestamp
     FROM requests r
-    JOIN responses resp ON r.id = resp.request_id
+    LEFT JOIN responses resp ON r.id = resp.request_id
     WHERE r.path IN ('/v1/chat/completions', '/v1/responses')
     ORDER BY r.timestamp
   `;
@@ -202,13 +202,13 @@ export async function getSessionHashGrid(id: string): Promise<any> {
 
   const completions = results[0].values.map((row: any[]) => {
     const reqBody = row[0] as string;
-    const resBody = row[1] as string;
+    const resBody = row[1] as string | null;
     const dbPromptTokens = row[2] as number | null;
     const path = row[3] as string;
     const parsed = parseRequestBody(reqBody, path);
 
     let tokens: any = {};
-    if (dbPromptTokens == null) {
+    if (dbPromptTokens == null && resBody != null) {
       tokens = extractTokensFromResponse(resBody, path);
     }
 
