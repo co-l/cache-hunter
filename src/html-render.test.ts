@@ -26,6 +26,20 @@ test('buildMessageHashGrid populates hashMap with content', () => {
   expect(hashMap[hash]).toBe('Unique content');
 });
 
+test('buildMessageHashGrid handles messages without content field', () => {
+  const completions: any[] = [
+    { messages: [{ role: 'user', content: 'Hello' }, { role: 'assistant' }] }
+  ];
+
+  const { grid, hashMap } = buildMessageHashGrid(completions);
+  expect(grid.rows).toBe(2);
+  expect(grid.cols).toBe(1);
+  // Second message has no content, should produce a hash for empty string
+  expect(grid.cells[1][0]).toBeTruthy();
+  expect(typeof grid.cells[1][0]).toBe('string');
+  expect(grid.cells[1][0]!.length).toBe(4);
+});
+
 test('computeToolsHashes returns null for empty tools', () => {
   const completions = [
     { messages: [], tools: undefined },

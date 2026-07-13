@@ -20,6 +20,18 @@ describe('Context Tree Analysis', () => {
       const hash = hashContent('test');
       expect(hash.length).toBe(4);
     });
+
+    it('should handle undefined content without throwing', () => {
+      const hash = hashContent(undefined as any);
+      expect(typeof hash).toBe('string');
+      expect(hash.length).toBe(4);
+    });
+
+    it('should handle null content without throwing', () => {
+      const hash = hashContent(null as any);
+      expect(typeof hash).toBe('string');
+      expect(hash.length).toBe(4);
+    });
   });
 
   describe('buildContextTree', () => {

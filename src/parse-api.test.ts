@@ -66,6 +66,36 @@ describe('parseRequestBody', () => {
     expect(result.messages).toEqual([]);
     expect(result.tools).toEqual([]);
   });
+
+  it('handles messages without content field in chat completions', () => {
+    const body = JSON.stringify({
+      model: 'gpt-4',
+      messages: [
+        { role: 'user', content: 'Hello' },
+        { role: 'assistant', tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'foo', arguments: '{}' } }] },
+        { role: 'user', content: 'Again' },
+      ],
+    });
+    const result = parseRequestBody(body, '/v1/chat/completions');
+    expect(result.messages).toHaveLength(3);
+    expect(result.messages[0].content).toBe('Hello');
+    expect(result.messages[1].content).toBe('');
+    expect(result.messages[2].content).toBe('Again');
+  });
+
+  it('handles null content in chat completions messages', () => {
+    const body = JSON.stringify({
+      model: 'gpt-4',
+      messages: [
+        { role: 'user', content: 'Hello' },
+        { role: 'assistant', content: null },
+      ],
+    });
+    const result = parseRequestBody(body, '/v1/chat/completions');
+    expect(result.messages).toHaveLength(2);
+    expect(result.messages[0].content).toBe('Hello');
+    expect(result.messages[1].content).toBe('');
+  });
 });
 
 

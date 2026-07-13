@@ -26,7 +26,7 @@ export function parseRequestBody(body: string, path: string): ParsedRequest {
     return {
       messages: (parsed.messages || []).map((m: any) => ({
         role: m.role,
-        content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+        content: typeof m.content === 'string' ? m.content : (m.content != null ? JSON.stringify(m.content) : ''),
       })),
       tools: parsed.tools || [],
       reasoningEffort: parsed.reasoning_effort,
