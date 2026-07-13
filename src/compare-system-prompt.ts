@@ -44,7 +44,7 @@ async function compareSystemPrompts() {
 
   // Extract system prompts
   const systemPrompts = completions.map((comp, idx) => {
-    const sysMsg = comp.messages.find(m => m.role === 'system');
+    const sysMsg = comp.messages.find((m: any) => m.role === 'system');
     return {
       idx,
       timestamp: comp.timestamp,

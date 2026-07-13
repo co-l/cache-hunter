@@ -25,7 +25,8 @@ export function printValidationReport(
     });
     for (const [hash, indices] of toolsVersions) {
       console.log(`  Calls ${indices.join(', ')}: [${hash}]`);
-      const toolNames = completions[indices[0]].tools.map((t: any) => t.name || t.function?.name);
+      const firstCompletion = completions[indices[0]]
+    const toolNames = firstCompletion?.tools?.map((t: any) => t.name || t.function?.name) ?? []
       console.log(`    Tools: ${toolNames.join(', ')}`);
     }
   } else {
