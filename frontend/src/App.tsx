@@ -47,24 +47,24 @@ export default function App() {
     return active?.id || null;
   }, [sessions]);
 
-  const loadGrid = useCallback(async (id: string) => {
-    setGridLoading(true);
+  const loadGrid = useCallback(async (id: string, incremental = false) => {
+    if (!incremental) setGridLoading(true)
     try {
-      const data = await api.getSessionGrid(id);
-      setGridData(data);
+      const data = await api.getSessionGrid(id)
+      setGridData(data)
     } catch {
-      setGridData(null);
+      if (!incremental) setGridData(null)
     } finally {
-      setGridLoading(false);
+      if (!incremental) setGridLoading(false)
     }
-  }, []);
+  }, [])
 
   const activeSessionId = getActiveSessionId();
 
   useWebSocket({
     'request:received': () => {
       if (selectedSessionId && selectedSessionId === activeSessionId) {
-        loadGrid(selectedSessionId);
+        loadGrid(selectedSessionId, true)
       }
     },
     'session:updated': () => {

@@ -1,10 +1,34 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, memo } from 'react';
 import type { TreeData } from '../hooks/useApi';
 import { JsonViewer } from './JsonViewer';
 import { JsonDiff } from './JsonDiff';
 import './HashGrid.css';
 
-export function HashGrid({ data, onDeleteColumn, autoScroll }: { data: TreeData; onDeleteColumn?: (colIndex: number) => void; autoScroll?: boolean }) {
+function gridDataEqual(a: TreeData, b: TreeData): boolean {
+  if (a === b) return true
+  if (a.lines.length !== b.lines.length) return false
+  for (let i = 0; i < a.lines.length; i++) {
+    if (a.lines[i].length !== b.lines[i].length) return false
+    for (let j = 0; j < a.lines[i].length; j++) {
+      if (a.lines[i][j] !== b.lines[i][j]) return false
+    }
+  }
+  const aKeys = Object.keys(a.hash_map)
+  const bKeys = Object.keys(b.hash_map)
+  if (aKeys.length !== bKeys.length) return false
+  for (const k of aKeys) {
+    if (a.hash_map[k] !== b.hash_map[k]) return false
+  }
+  return true
+}
+
+interface HashGridProps {
+  data: TreeData
+  onDeleteColumn?: (colIndex: number) => void
+  autoScroll?: boolean
+}
+
+export const HashGrid = memo(function HashGrid({ data, onDeleteColumn, autoScroll }: HashGridProps) {
   const { lines, hash_map } = data;
   const header = lines[0];
   const dataRows = lines.slice(1);
@@ -129,7 +153,7 @@ export function HashGrid({ data, onDeleteColumn, autoScroll }: { data: TreeData;
                 else thCls += ' col-match'
                 return (
                   <th
-                    key={ci}
+                    key={'call-' + ci}
                     className={thCls}
                     onClick={() => toggleExclude(ci)}
                     title="Click to exclude this call from diff comparison"
@@ -163,7 +187,7 @@ export function HashGrid({ data, onDeleteColumn, autoScroll }: { data: TreeData;
 
                     return (
                       <td
-                        key={ci}
+                        key={'call-' + ci}
                         className={cls}
                         onClick={hash ? (e) => handleCellClick(hash, e) : undefined}
                         title={hash ? 'Click to view content | Ctrl+click to compare' : undefined}
@@ -218,7 +242,7 @@ export function HashGrid({ data, onDeleteColumn, autoScroll }: { data: TreeData;
       )}
     </div>
   );
-}
+}, (prev, next) => gridDataEqual(prev.data, next.data))
 
 function ContentView({ hash, hashMap }: { hash: string; hashMap: Record<string, string> }) {
   const content = hashMap[hash];
