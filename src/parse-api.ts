@@ -1,5 +1,5 @@
 export interface ParsedRequest {
-  messages: Array<{ role: string; content: string }>;
+  messages: Array<Record<string, unknown>>;
   tools: any[];
   reasoningEffort?: string;
 }
@@ -15,19 +15,13 @@ export function parseRequestBody(body: string, path: string): ParsedRequest {
   if (path === '/v1/responses') {
     const messages = (parsed.input || [])
       .filter((item: any) => item.type === 'message')
-      .map((item: any) => ({
-        role: item.role,
-        content: item.content?.[0]?.text || '',
-      }));
+      .map((item: any) => ({ ...item }));
     return { messages, tools: parsed.tools || [], reasoningEffort: parsed.reasoning_effort };
   }
 
   if (path === '/v1/chat/completions') {
     return {
-      messages: (parsed.messages || []).map((m: any) => ({
-        role: m.role,
-        content: typeof m.content === 'string' ? m.content : (m.content != null ? JSON.stringify(m.content) : ''),
-      })),
+      messages: (parsed.messages || []).map((m: any) => ({ ...m })),
       tools: parsed.tools || [],
       reasoningEffort: parsed.reasoning_effort,
     };

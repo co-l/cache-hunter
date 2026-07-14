@@ -16,6 +16,8 @@ export default function App() {
   const [gridLoading, setGridLoading] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null);
+  const [renameInput, setRenameInput] = useState('');
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const showError = useCallback((msg: string) => {
@@ -144,6 +146,28 @@ export default function App() {
     }
   };
 
+  const handleStartRename = (session: SessionMeta) => {
+    setRenamingSessionId(session.id);
+    setRenameInput(session.name || formatTime(session.created_at));
+  };
+
+  const handleRenameConfirm = async () => {
+    if (!renamingSessionId) return;
+    try {
+      await api.renameSession(renamingSessionId, renameInput);
+      setRenamingSessionId(null);
+      setRenameInput('');
+      await pollStatus();
+    } catch (err: any) {
+      showError(err.message || 'Failed to rename session');
+    }
+  };
+
+  const handleRenameCancel = () => {
+    setRenamingSessionId(null);
+    setRenameInput('');
+  };
+
   const handleSaveConfig = () => {
     api.updateConfig({ targetHost: editHost, targetPort: parseInt(editPort, 10) }).then(c => {
       setConfig(c);
@@ -249,9 +273,28 @@ export default function App() {
                   onClick={() => handleSelectSession(s.id)}
                 >
                   <div className="session-info">
-                    <span className="session-time">{formatTime(s.created_at)}</span>
-                    <span className="session-count">{s.request_count} req</span>
-                    <span className="session-duration">{formatDuration(s)}</span>
+                    {renamingSessionId === s.id ? (
+                      <span className="session-rename">
+                        <input
+                          className="rename-input"
+                          value={renameInput}
+                          onChange={e => setRenameInput(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') handleRenameConfirm()
+                            if (e.key === 'Escape') handleRenameCancel()
+                          }}
+                          onBlur={handleRenameConfirm}
+                          autoFocus
+                          onClick={e => e.stopPropagation()}
+                        />
+                      </span>
+                    ) : (
+                      <span className="session-name" onClick={e => { e.stopPropagation(); handleStartRename(s) }}>
+                        {s.name || formatTime(s.created_at)}
+                        <span className="rename-icon">✎</span>
+                      </span>
+                    )}
+                    <span className="session-count">{s.request_count} req · {formatDuration(s)}</span>
                   </div>
                   <div className="session-actions">
                     {s.status === 'active' && <span className="live-badge">●</span>}

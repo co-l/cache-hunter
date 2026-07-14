@@ -16,14 +16,26 @@ test('buildMessageHashGrid produces correct grid dimensions', () => {
   expect(Object.keys(hashMap).length).toBe(2);
 });
 
-test('buildMessageHashGrid populates hashMap with content', () => {
+test('buildMessageHashGrid populates hashMap with serialized message', () => {
   const completions = [
     { messages: [{ role: 'user', content: 'Unique content' }] }
   ];
 
   const { hashMap } = buildMessageHashGrid(completions);
   const hash = Object.keys(hashMap)[0];
-  expect(hashMap[hash]).toBe('Unique content');
+  expect(hashMap[hash]).toContain('Unique content');
+  expect(hashMap[hash]).toContain('"role":"user"');
+});
+
+test('buildMessageHashGrid differentiates by role', () => {
+  const completions = [
+    { messages: [{ role: 'user', content: 'Hello' }] },
+    { messages: [{ role: 'assistant', content: 'Hello' }] }
+  ];
+
+  const { grid } = buildMessageHashGrid(completions);
+  // Same content but different role -> different hashes
+  expect(grid.cells[0][0]).not.toBe(grid.cells[0][1]);
 });
 
 test('buildMessageHashGrid handles messages without content field', () => {
@@ -34,10 +46,11 @@ test('buildMessageHashGrid handles messages without content field', () => {
   const { grid, hashMap } = buildMessageHashGrid(completions);
   expect(grid.rows).toBe(2);
   expect(grid.cols).toBe(1);
-  // Second message has no content, should produce a hash for empty string
+  // Second message has no content, should still produce a hash from the full object
   expect(grid.cells[1][0]).toBeTruthy();
   expect(typeof grid.cells[1][0]).toBe('string');
   expect(grid.cells[1][0]!.length).toBe(4);
+  expect(hashMap[grid.cells[1][0]!]).toContain('"role":"assistant"');
 });
 
 test('computeToolsHashes returns null for empty tools', () => {
@@ -85,6 +98,10 @@ test('buildTreeData includes tool content in hash_map', () => {
   const toolHash = data.lines[2][0];
   expect(data.hash_map[toolHash]).toContain('myTool');
   expect(data.lines[0][0]).toBe('C  0');
+  // Message hash_map value should be full JSON, not just content
+  const msgHash = data.lines[3][0];
+  expect(data.hash_map[msgHash]).toContain('"role":"user"');
+  expect(data.hash_map[msgHash]).toContain('"content":"Hello"');
 });
 
 test('buildTreeData produces correct line structure', () => {

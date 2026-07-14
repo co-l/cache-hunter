@@ -10,6 +10,7 @@ import {
   deleteSession,
   deleteSessionCall,
   getSessionHashGrid,
+  renameSession,
 } from './session-manager.js'
 import type { WSBroadcaster } from './ws-server.js'
 
@@ -150,6 +151,20 @@ export function createApp(engine: ProxyEngine, dataDir: string = DATA_DIR, broad
   app.delete('/api/sessions/:id', (req: Request, res: Response) => {
     deleteSession(req.params.id)
     res.json({ deleted: true })
+  })
+
+  app.put('/api/sessions/:id', (req: Request, res: Response) => {
+    const { name } = req.body
+    if (typeof name !== 'string') {
+      res.status(400).json({ error: 'name must be a string' })
+      return
+    }
+    const updated = renameSession(req.params.id, name)
+    if (!updated) {
+      res.status(404).json({ error: 'Session not found' })
+      return
+    }
+    res.json(updated)
   })
 
   app.delete('/api/sessions/:id/calls/:index', async (req: Request, res: Response) => {

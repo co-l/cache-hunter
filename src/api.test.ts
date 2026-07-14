@@ -127,6 +127,39 @@ describe('API Endpoints', () => {
     expect(status).toBe(404);
   });
 
+  it('PUT /api/sessions/:id renames a session', async () => {
+    // Create a session via capture lifecycle
+    await fetchJson(`${baseUrl}/api/proxy/start`, { method: 'POST' });
+    const capRes = await fetchJson(`${baseUrl}/api/capture/start`, { method: 'POST' });
+    const sessionId = capRes.body.session.id;
+    await fetchJson(`${baseUrl}/api/capture/stop`, { method: 'POST' });
+    await fetchJson(`${baseUrl}/api/proxy/stop`, { method: 'POST' });
+
+    const { status, body } = await fetchJson(`${baseUrl}/api/sessions/${sessionId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ name: 'Renamed Session' }),
+    });
+    expect(status).toBe(200);
+    expect(body.name).toBe('Renamed Session');
+    expect(body.id).toBe(sessionId);
+  });
+
+  it('PUT /api/sessions/:id returns 400 for missing name', async () => {
+    const { status } = await fetchJson(`${baseUrl}/api/sessions/foo`, {
+      method: 'PUT',
+      body: JSON.stringify({}),
+    });
+    expect(status).toBe(400);
+  });
+
+  it('PUT /api/sessions/:id returns 404 for unknown session', async () => {
+    const { status } = await fetchJson(`${baseUrl}/api/sessions/nonexistent`, {
+      method: 'PUT',
+      body: JSON.stringify({ name: 'Test' }),
+    });
+    expect(status).toBe(404);
+  });
+
   it('full lifecycle: proxy start → capture start → capture stop → proxy stop', async () => {
     let res;
 

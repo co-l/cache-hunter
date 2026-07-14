@@ -17,20 +17,25 @@ export function hashContent(content: string | any[] | null | undefined): string 
   return createHash('md5').update(str).digest('hex').substring(0, 4)
 }
 
-export function buildContextTree(messages: Array<{ role: string; content: string }>): ContextNode[] {
+function serializeMessage(msg: Record<string, unknown>): string {
+  return JSON.stringify(msg, Object.keys(msg).sort())
+}
+
+export function buildContextTree(messages: Array<Record<string, unknown>>): ContextNode[] {
   const tree: ContextNode[] = [];
   let cumulativeContext = '';
 
   for (let i = 0; i < messages.length; i++) {
     const message = messages[i];
-    const messageHash = hashContent(message.content);
+    const serialized = serializeMessage(message)
+    const messageHash = hashContent(serialized);
     cumulativeContext += messageHash;
     const contextHash = hashContent(cumulativeContext);
 
     tree.push({
       turn: i + 1,
-      role: message.role,
-      content: message.content,
+      role: (message.role as string) || '',
+      content: typeof message.content === 'string' ? message.content : (message.content != null ? JSON.stringify(message.content) : ''),
       messageHash,
       contextHash,
       isContextValid: true,
@@ -43,6 +48,6 @@ export function buildContextTree(messages: Array<{ role: string; content: string
   return tree;
 }
 
-export function validateContextChain(messages: Array<{ role: string; content: string }>): ContextNode[] {
+export function validateContextChain(messages: Array<Record<string, unknown>>): ContextNode[] {
   return buildContextTree(messages);
 }

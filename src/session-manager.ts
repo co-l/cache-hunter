@@ -25,6 +25,7 @@ export interface SessionMeta {
   request_count: number;
   target_host: string;
   target_port: number;
+  name?: string;
 }
 
 interface Manifest {
@@ -125,6 +126,22 @@ export function deleteSession(id: string): void {
 
   manifest.sessions.splice(idx, 1);
   writeManifest(manifest);
+}
+
+export function renameSession(id: string, name: string): SessionMeta | null {
+  const manifest = readManifest()
+  const session = manifest.sessions.find(s => s.id === id)
+  if (!session) return null
+
+  const trimmed = name.trim()
+  if (trimmed) {
+    session.name = trimmed
+  } else {
+    delete session.name
+  }
+
+  writeManifest(manifest)
+  return session
 }
 
 export function getSessionDbPath(id: string): string | null {

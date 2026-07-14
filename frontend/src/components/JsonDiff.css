@@ -1,0 +1,88 @@
+.jd-root {
+  font-family: monospace;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.jd-empty {
+  color: #666;
+  font-style: italic;
+  padding: 8px;
+}
+
+.jd-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  flex-wrap: wrap;
+}
+
+.jd-added {
+  background: #0a2a0a;
+  color: #6f6;
+}
+
+.jd-removed {
+  background: #2a0a0a;
+  color: #f66;
+}
+
+.jd-changed {
+  background: #2a2a0a;
+  color: #cc6;
+}
+
+.jd-unchanged {
+  color: #555;
+}
+
+.jd-icon {
+  font-weight: bold;
+  min-width: 12px;
+  user-select: none;
+}
+
+.jd-path {
+  color: #6cf;
+  min-width: 60px;
+}
+
+.jd-toggle {
+  cursor: pointer;
+  color: #888;
+  font-size: 9px;
+  user-select: none;
+}
+
+.jd-toggle:hover {
+  color: var(--accent);
+}
+
+.jd-values {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.jd-val-old {
+  color: #f66;
+  text-decoration: line-through;
+}
+
+.jd-val-new {
+  color: #6f6;
+}
+
+.jd-arrow {
+  color: #888;
+}
+
+.jd-children {
+  width: 100%;
+  padding-left: 16px;
+  border-left: 1px solid #333;
+  margin-left: 8px;
+}

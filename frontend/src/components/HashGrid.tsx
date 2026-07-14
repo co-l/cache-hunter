@@ -1,13 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { TreeData } from '../hooks/useApi';
+import { JsonViewer } from './JsonViewer';
+import { JsonDiff } from './JsonDiff';
 import './HashGrid.css';
-
-interface DiffLine {
-  type: 'added' | 'removed' | 'unchanged' | 'changed';
-  lineA: number | null;
-  lineB: number | null;
-  content: string;
-}
 
 export function HashGrid({ data, onDeleteColumn, autoScroll }: { data: TreeData; onDeleteColumn?: (colIndex: number) => void; autoScroll?: boolean }) {
   const { lines, hash_map } = data;
@@ -229,168 +224,12 @@ function ContentView({ hash, hashMap }: { hash: string; hashMap: Record<string, 
   const content = hashMap[hash];
   if (content === undefined) return <div className="content-text">No content found for hash: {hash}</div>;
 
-  const toolHtml = renderToolContent(content);
-  if (toolHtml) {
-    return <div dangerouslySetInnerHTML={{ __html: toolHtml }} />;
-  }
-
-  return <pre className="content-text">{content}</pre>;
+  return <JsonViewer data={content} />;
 }
 
 function DiffView({ hashA, hashB, hashMap }: { hashA: string; hashB: string; hashMap: Record<string, string> }) {
   const contentA = hashMap[hashA] || '';
   const contentB = hashMap[hashB] || '';
 
-  const isToolA = isToolJson(contentA);
-  const isToolB = isToolJson(contentB);
-
-  if (isToolA && isToolB) {
-    const html = renderToolDiff(contentA, contentB);
-    return <div dangerouslySetInnerHTML={{ __html: html }} />;
-  }
-
-  const diffLines = computeDiff(contentA, contentB);
-  return (
-    <div className="diff-lines">
-      {diffLines.map((line, i) => {
-        const lineNum = line.type === 'added' ? `  ${line.lineB}` : `${line.lineA}  `;
-        const prefix = line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' ';
-        return (
-          <div key={i} className={`diff-line ${line.type}`}>
-            <span className="diff-line-number">{lineNum}</span>
-            <span className="diff-line-content">{prefix} {line.content}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function isToolJson(str: string): boolean {
-  try {
-    const parsed = JSON.parse(str);
-    return Array.isArray(parsed) && parsed.length > 0 && parsed[0].type === 'function';
-  } catch { return false; }
-}
-
-function renderToolContent(content: string): string | null {
-  if (!isToolJson(content)) return null;
-  const tools = JSON.parse(content);
-  let html = '<div class="tools-container">';
-  for (const tool of tools) {
-    html += renderToolCard(tool);
-  }
-  html += '</div>';
-  return html;
-}
-
-function renderToolCard(tool: any): string {
-  const fn = tool.function || {};
-  const name = fn.name || 'unknown';
-  const desc = fn.description || '';
-  const params = fn.parameters || {};
-  const props = params.properties || {};
-  const required = new Set(params.required || []);
-
-  let html = '<div class="tool-card">';
-  html += `<div class="tool-name">${escapeHtml(name)}</div>`;
-  if (desc) html += `<div class="tool-desc">${escapeHtml(desc)}</div>`;
-  const propKeys = Object.keys(props);
-  if (propKeys.length > 0) {
-    html += '<table class="tool-params">';
-    html += '<tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>';
-    for (const key of propKeys) {
-      const p = props[key];
-      const isReq = required.has(key) ? 'yes' : 'no';
-      html += `<tr><td class="param-name">${escapeHtml(key)}</td><td>${escapeHtml(p.type || 'any')}</td><td class="param-req-${isReq}">${isReq}</td><td class="param-desc">${escapeHtml(p.description || '')}</td></tr>`;
-    }
-    html += '</table>';
-  }
-  html += '</div>';
-  return html;
-}
-
-function renderToolDiff(contentA: string, contentB: string): string {
-  const toolsA = JSON.parse(contentA);
-  const toolsB = JSON.parse(contentB);
-  const mapA = Object.fromEntries(toolsA.map((t: any) => [t.function?.name, t]));
-  const mapB = Object.fromEntries(toolsB.map((t: any) => [t.function?.name, t]));
-  const allNames = [...new Set([...Object.keys(mapA), ...Object.keys(mapB)])].sort();
-
-  let html = '<div class="tools-container">';
-  for (const name of allNames) {
-    const ta = mapA[name];
-    const tb = mapB[name];
-    if (ta && !tb) {
-      html += `<div class="diff-line removed"><span class="diff-line-content">- ${escapeHtml(name)}</span></div>`;
-      html += `<div class="tool-card removed">${renderToolCardContent(ta)}</div>`;
-    } else if (!ta && tb) {
-      html += `<div class="diff-line added"><span class="diff-line-content">+ ${escapeHtml(name)}</span></div>`;
-      html += `<div class="tool-card added">${renderToolCardContent(tb)}</div>`;
-    } else {
-      const strA = JSON.stringify(ta);
-      const strB = JSON.stringify(tb);
-      if (strA !== strB) {
-        html += `<div class="diff-line changed"><span class="diff-line-content">~ ${escapeHtml(name)}</span></div>`;
-        html += `<div class="tool-card removed">${renderToolCardContent(ta)}</div>`;
-        html += `<div class="tool-card added">${renderToolCardContent(tb)}</div>`;
-      } else {
-        html += `<div class="diff-line unchanged"><span class="diff-line-content">  ${escapeHtml(name)}</span></div>`;
-      }
-    }
-  }
-  html += '</div>';
-  return html;
-}
-
-function renderToolCardContent(tool: any): string {
-  const fn = tool.function || {};
-  const desc = fn.description || '';
-  const params = fn.parameters || {};
-  const props = params.properties || {};
-  const required = new Set(params.required || []);
-
-  let html = `<div class="tool-name">${escapeHtml(fn.name || 'unknown')}</div>`;
-  if (desc) html += `<div class="tool-desc">${escapeHtml(desc)}</div>`;
-  const propKeys = Object.keys(props);
-  if (propKeys.length > 0) {
-    html += '<table class="tool-params">';
-    html += '<tr><th>Param</th><th>Type</th><th>Req</th><th>Description</th></tr>';
-    for (const key of propKeys) {
-      const p = props[key];
-      const isReq = required.has(key) ? 'yes' : 'no';
-      html += `<tr><td class="param-name">${escapeHtml(key)}</td><td>${escapeHtml(p.type || 'any')}</td><td class="param-req-${isReq}">${isReq}</td><td class="param-desc">${escapeHtml(p.description || '')}</td></tr>`;
-    }
-    html += '</table>';
-  }
-  html += '</div>';
-  return html;
-}
-
-function computeDiff(textA: string, textB: string): DiffLine[] {
-  const linesA = textA.split('\n');
-  const linesB = textB.split('\n');
-  const maxLen = Math.max(linesA.length, linesB.length);
-  const result: DiffLine[] = [];
-
-  for (let i = 0; i < maxLen; i++) {
-    const lineA = linesA[i] || '';
-    const lineB = linesB[i] || '';
-    if (lineA === lineB) {
-      result.push({ type: 'unchanged', lineA: i + 1, lineB: i + 1, content: lineA });
-    } else if (lineA && !lineB) {
-      result.push({ type: 'removed', lineA: i + 1, lineB: null, content: lineA });
-    } else if (!lineA && lineB) {
-      result.push({ type: 'added', lineA: null, lineB: i + 1, content: lineB });
-    } else {
-      result.push({ type: 'removed', lineA: i + 1, lineB: null, content: lineA });
-      result.push({ type: 'added', lineA: null, lineB: i + 1, content: lineB });
-    }
-  }
-
-  return result;
-}
-
-function escapeHtml(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return <JsonDiff sourceA={contentA} sourceB={contentB} />;
 }

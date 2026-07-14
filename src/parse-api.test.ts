@@ -18,7 +18,22 @@ describe('parseRequestBody', () => {
     expect(result.tools).toEqual([{ name: 'test_tool' }]);
   });
 
-  it('parses responses API format', () => {
+  it('preserves full message objects in chat completions', () => {
+    const body = JSON.stringify({
+      model: 'gpt-4',
+      messages: [
+        { role: 'user', content: 'Hello', name: 'Alice' },
+        { role: 'assistant', content: 'Hi', tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'foo', arguments: '{}' } }] },
+      ],
+    });
+    const result = parseRequestBody(body, '/v1/chat/completions');
+    expect(result.messages).toHaveLength(2);
+    expect(result.messages[0]).toHaveProperty('name', 'Alice');
+    expect(result.messages[1]).toHaveProperty('tool_calls');
+    expect((result.messages[1] as any).tool_calls).toHaveLength(1);
+  });
+
+  it('parses responses API format preserving full items', () => {
     const body = JSON.stringify({
       model: 'deepseek-v4-flash',
       input: [
@@ -29,8 +44,9 @@ describe('parseRequestBody', () => {
     });
     const result = parseRequestBody(body, '/v1/responses');
     expect(result.messages).toHaveLength(2);
-    expect(result.messages[0]).toEqual({ role: 'developer', content: 'System instructions' });
-    expect(result.messages[1]).toEqual({ role: 'user', content: 'Hello!' });
+    expect(result.messages[0]).toHaveProperty('type', 'message');
+    expect(result.messages[0]).toHaveProperty('role', 'developer');
+    expect((result.messages[0] as any).content).toBeInstanceOf(Array);
     expect(result.tools).toEqual([{ name: 'exec_command' }]);
   });
 
@@ -44,7 +60,7 @@ describe('parseRequestBody', () => {
     });
     const result = parseRequestBody(body, '/v1/responses');
     expect(result.messages).toHaveLength(1);
-    expect(result.messages[0].content).toBe('Hi');
+    expect(result.messages[0]).toHaveProperty('type', 'message');
   });
 
   it('returns empty messages for unknown path', () => {
@@ -67,23 +83,23 @@ describe('parseRequestBody', () => {
     expect(result.tools).toEqual([]);
   });
 
-  it('handles messages without content field in chat completions', () => {
+  it('preserves assistant tool_calls in chat completions', () => {
     const body = JSON.stringify({
       model: 'gpt-4',
       messages: [
         { role: 'user', content: 'Hello' },
         { role: 'assistant', tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'foo', arguments: '{}' } }] },
-        { role: 'user', content: 'Again' },
+        { role: 'tool', tool_call_id: 'call_1', content: '42' },
       ],
     });
     const result = parseRequestBody(body, '/v1/chat/completions');
     expect(result.messages).toHaveLength(3);
-    expect(result.messages[0].content).toBe('Hello');
-    expect(result.messages[1].content).toBe('');
-    expect(result.messages[2].content).toBe('Again');
+    expect(result.messages[0]).toEqual({ role: 'user', content: 'Hello' });
+    expect((result.messages[1] as any).tool_calls).toBeDefined();
+    expect((result.messages[2] as any).tool_call_id).toBe('call_1');
   });
 
-  it('handles null content in chat completions messages', () => {
+  it('preserves null content in chat completions messages', () => {
     const body = JSON.stringify({
       model: 'gpt-4',
       messages: [
@@ -93,8 +109,8 @@ describe('parseRequestBody', () => {
     });
     const result = parseRequestBody(body, '/v1/chat/completions');
     expect(result.messages).toHaveLength(2);
-    expect(result.messages[0].content).toBe('Hello');
-    expect(result.messages[1].content).toBe('');
+    expect(result.messages[0]).toEqual({ role: 'user', content: 'Hello' });
+    expect(result.messages[1]).toEqual({ role: 'assistant', content: null });
   });
 });
 

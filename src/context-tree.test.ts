@@ -51,6 +51,15 @@ describe('Context Tree Analysis', () => {
       expect(tree[0].messageHash).toBeDefined();
     });
 
+    it('should differentiate messages by role', () => {
+      const messages1 = [{ role: 'user', content: 'Hello' }];
+      const messages2 = [{ role: 'assistant', content: 'Hello' }];
+      const tree1 = buildContextTree(messages1);
+      const tree2 = buildContextTree(messages2);
+      // Same content, different role -> different hashes
+      expect(tree1[0].messageHash).not.toBe(tree2[0].messageHash);
+    });
+
     it('should build cumulative context hash for multiple messages', () => {
       const messages = [
         { role: 'user', content: 'Hello' },
@@ -79,6 +88,15 @@ describe('Context Tree Analysis', () => {
       
       // Context should accumulate (each turn includes all previous)
       expect(tree[2].contextHash).not.toBe(tree[1].contextHash);
+    });
+
+    it('should extract role and content from full message objects', () => {
+      const messages = [
+        { role: 'user', content: 'Hello', name: 'Alice', extra_field: true }
+      ];
+      const tree = buildContextTree(messages);
+      expect(tree[0].role).toBe('user');
+      expect(tree[0].content).toBe('Hello');
     });
   });
 });

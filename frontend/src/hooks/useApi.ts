@@ -34,6 +34,7 @@ export interface SessionMeta {
   request_count: number;
   target_host: string;
   target_port: number;
+  name?: string;
 }
 
 export interface TreeData {
@@ -58,6 +59,8 @@ export const api = {
   listSessions: () => request<{ sessions: SessionMeta[] }>('/sessions'),
   getSessionGrid: (id: string) => request<TreeData>(`/sessions/${id}`),
   deleteSession: (id: string) => request<{ deleted: boolean }>(`/sessions/${id}`, { method: 'DELETE' }),
+  renameSession: (id: string, name: string) =>
+    request<SessionMeta>(`/sessions/${id}`, { method: 'PUT', body: JSON.stringify({ name }) }),
   deleteSessionCall: (id: string, index: number) =>
     request<{ deleted: boolean }>(`/sessions/${id}/calls/${index}`, { method: 'DELETE' }),
 };

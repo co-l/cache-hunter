@@ -11,8 +11,12 @@ export interface GridResult {
   hashMap: Record<string, string>;
 }
 
+function serializeMessage(msg: Record<string, unknown>): string {
+  return JSON.stringify(msg, Object.keys(msg).sort())
+}
+
 export function buildMessageHashGrid(
-  completions: Array<{ messages: Array<{ role: string; content: string }> }>
+  completions: Array<{ messages: Array<Record<string, unknown>> }>
 ): GridResult {
   const maxMessages = Math.max(...completions.map(c => c.messages.length), 0);
   const numCompletions = completions.length;
@@ -24,9 +28,10 @@ export function buildMessageHashGrid(
     for (let compIdx = 0; compIdx < numCompletions; compIdx++) {
       const msg = completions[compIdx].messages[msgIdx];
       if (msg) {
-        const hash = hashContent(msg.content);
+        const serialized = serializeMessage(msg)
+        const hash = hashContent(serialized);
         row.push(hash);
-        hashMap[hash] = msg.content;
+        hashMap[hash] = serialized;
       } else {
         row.push(null);
       }
@@ -68,7 +73,7 @@ export interface TreeData {
 
 export function buildTreeData(
   completions: Array<{
-    messages: Array<{ role: string; content: string }>;
+    messages: Array<Record<string, unknown>>;
     tools?: any[];
     path: string;
     prompt_tokens?: number;

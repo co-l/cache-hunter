@@ -10,6 +10,7 @@ import {
   deleteSession,
   deleteSessionCall,
   getSessionDbPath,
+  renameSession,
   setDataDir,
 } from './session-manager.js';
 
@@ -131,5 +132,38 @@ describe('SessionManager', () => {
   it('should return false for non-existent session', async () => {
     const ok = await deleteSessionCall('nonexistent', 0)
     expect(ok).toBe(false)
+  })
+
+  it('should rename a session', () => {
+    const session = createSession('localhost', 8000, null)
+    expect(session.name).toBeUndefined()
+
+    const updated = renameSession(session.id, 'My Test Session')
+    expect(updated).not.toBeNull()
+    expect(updated!.name).toBe('My Test Session')
+
+    const sessions = listSessions()
+    const found = sessions.find(s => s.id === session.id)
+    expect(found!.name).toBe('My Test Session')
+  })
+
+  it('should return null when renaming non-existent session', () => {
+    const result = renameSession('nonexistent', 'anything')
+    expect(result).toBeNull()
+  })
+
+  it('should trim the name', () => {
+    const session = createSession('localhost', 8000, null)
+    const updated = renameSession(session.id, '  Spaced Name  ')
+    expect(updated!.name).toBe('Spaced Name')
+  })
+
+  it('should allow renaming to empty string (clears name)', () => {
+    const session = createSession('localhost', 8000, null)
+    const updated = renameSession(session.id, 'Some Name')
+    expect(updated!.name).toBe('Some Name')
+
+    const cleared = renameSession(session.id, '')
+    expect(cleared!.name).toBeUndefined()
   })
 });
