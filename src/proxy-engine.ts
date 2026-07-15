@@ -127,18 +127,6 @@ export class ProxyEngine extends EventEmitter {
       const cacheSalt = this.extractCacheSalt(requestBody)
       const requestHeaders = JSON.stringify(req.headers)
 
-      if (this._activeModel && requestBody) {
-        try {
-          const body = JSON.parse(requestBody)
-          if (body.model && body.model !== this._activeModel) {
-            body.model = this._activeModel
-            requestBody = JSON.stringify(body)
-          }
-        } catch {
-          // ignore
-        }
-      }
-
       const requestData: ProxyRequestData = {
         id: requestId,
         timestamp: startTime,
