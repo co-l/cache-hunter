@@ -1,6 +1,6 @@
 # Cache Hunter
 
-Transparent proxy for vLLM with SQLite logging to debug prefix caching behavior.
+Transparent proxy for OpenAI-API compatible endpoints with SQLite logging to debug prefix caching behavior.
 
 ## Quick Start
 
@@ -20,7 +20,7 @@ export OPENAI_BASE_URL=http://localhost:8787
 ## Architecture
 
 ```
-Harness → Proxy (localhost:8787) → vLLM (127.0.0.1:8000)
+Harness → Proxy (localhost:8787) → OpenAI-API endpoint (127.0.0.1:8000)
                                    ↓
                              cache-hunter.db
 ```
@@ -175,9 +175,9 @@ rm cache-hunter.db
 
 ## How It Works
 
-1. **Proxy intercepts** all HTTP requests to vLLM
+1. **Proxy intercepts** all HTTP requests to the upstream endpoint
 2. **Captures request** body, headers, timestamp
-3. **Forwards transparently** to vLLM (127.0.0.1:8000)
+3. **Forwards transparently** to the target (127.0.0.1:8000)
 4. **Captures response** body, headers, duration, token counts
 5. **Logs to SQLite** asynchronously (batched writes)
 6. **Adds correlation ID** header (`x-proxy-request-id`)
