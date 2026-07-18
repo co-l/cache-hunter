@@ -11,27 +11,27 @@ npm install
 # Start proxy
 npm start
 
-# In another terminal, point OpenFox to the proxy
+# Point Harness to the proxy
 export OPENAI_BASE_URL=http://localhost:8787
 
-# Run your OpenFox tool as normal
-# All traffic will be logged to cache-hunter.db
+# Run your Harness tool as normal — all traffic gets logged
 ```
 
 ## Architecture
 
 ```
-OpenFox → Proxy (localhost:8787) → vLLM (192.168.1.223:8000)
-                                    ↓
-                              cache-hunter.db
+Harness → Proxy (localhost:8787) → vLLM (127.0.0.1:8000)
+                                   ↓
+                             cache-hunter.db
 ```
 
 ## Configuration
 
-Edit `src/index.ts` to change:
-- `PROXY_PORT` (default: 8787)
-- `VLLM_HOST` (default: 192.168.1.223)
-- `VLLM_PORT` (default: 8000)
+Set via environment variables (or persisted from the UI):
+- `TARGET_HOST` (default: `127.0.0.1`)
+- `TARGET_PORT` (default: `8000`)
+- `PROXY_PORT` (default: `8787`)
+- `WEB_PORT` (default: `4000`)
 
 ## Database Schema
 
@@ -177,7 +177,7 @@ rm cache-hunter.db
 
 1. **Proxy intercepts** all HTTP requests to vLLM
 2. **Captures request** body, headers, timestamp
-3. **Forwards transparently** to vLLM (192.168.1.223:8000)
+3. **Forwards transparently** to vLLM (127.0.0.1:8000)
 4. **Captures response** body, headers, duration, token counts
 5. **Logs to SQLite** asynchronously (batched writes)
 6. **Adds correlation ID** header (`x-proxy-request-id`)

@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { AddressInfo } from 'net';
-import { mkdirSync, existsSync, rmSync } from 'fs';
+import { mkdirSync, existsSync, rmSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { setDataDir } from './session-manager.js';
+import { getConfigPath } from './config-store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEST_DATA_DIR = join(__dirname, '..', 'data-test-api');
@@ -52,7 +53,7 @@ describe('API Endpoints', () => {
     expect(body.targetPort).toBe(8765);
   });
 
-  it('PUT /api/config updates config', async () => {
+  it('PUT /api/config updates config and persists to disk', async () => {
     const { status, body } = await fetchJson(`${baseUrl}/api/config`, {
       method: 'PUT',
       body: JSON.stringify({ targetHost: '10.0.0.1', targetPort: 8080 }),
@@ -60,6 +61,12 @@ describe('API Endpoints', () => {
     expect(status).toBe(200);
     expect(body.targetHost).toBe('10.0.0.1');
     expect(body.targetPort).toBe(8080);
+
+    const configPath = getConfigPath(TEST_DATA_DIR);
+    expect(existsSync(configPath)).toBe(true);
+    const saved = JSON.parse(readFileSync(configPath, 'utf-8'));
+    expect(saved.targetHost).toBe('10.0.0.1');
+    expect(saved.targetPort).toBe(8080);
   });
 
   it('GET /api/proxy/status returns stopped initially', async () => {

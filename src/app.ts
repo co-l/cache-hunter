@@ -12,6 +12,7 @@ import {
   getSessionHashGrid,
   renameSession,
 } from './session-manager.js'
+import { saveProxyConfig } from './config-store.js'
 import type { WSBroadcaster } from './ws-server.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -64,6 +65,7 @@ export function createApp(engine: ProxyEngine, dataDir: string = DATA_DIR, broad
     if (targetPort) updates.targetPort = parseInt(targetPort, 10)
     engine.updateConfig(updates)
     const cfg = engine.getConfig()
+    saveProxyConfig(dataDir, cfg)
     res.json({ targetHost: cfg.targetHost, targetPort: cfg.targetPort })
   })
 

@@ -6,22 +6,29 @@ import { ProxyEngine } from './proxy-engine.js';
 import { createApp } from './app.js';
 import { setDataDir } from './session-manager.js';
 import { attachWSServer } from './ws-server.js';
+import { loadProxyConfig } from './config-store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, '..');
 const DATA_DIR = join(PROJECT_ROOT, 'data');
 
 const WEB_PORT = parseInt(process.env.WEB_PORT || '4000', 10);
-const PROXY_PORT = parseInt(process.env.PROXY_PORT || '8787', 10);
-const DEFAULT_TARGET_HOST = process.env.TARGET_HOST || '192.168.1.223';
-const DEFAULT_TARGET_PORT = parseInt(process.env.TARGET_PORT || '8000', 10);
+const PROXY_PORT_ENV = parseInt(process.env.PROXY_PORT || '8787', 10);
 
 setDataDir(DATA_DIR);
 
+const envDefaults = {
+  targetHost: process.env.TARGET_HOST || '127.0.0.1',
+  targetPort: parseInt(process.env.TARGET_PORT || '8000', 10),
+  proxyPort: PROXY_PORT_ENV,
+};
+
+const persisted = loadProxyConfig(DATA_DIR, envDefaults);
+
 const engine = new ProxyEngine({
-  targetHost: DEFAULT_TARGET_HOST,
-  targetPort: DEFAULT_TARGET_PORT,
-  proxyPort: PROXY_PORT,
+  targetHost: persisted.targetHost,
+  targetPort: persisted.targetPort,
+  proxyPort: persisted.proxyPort,
 });
 
 const server = createServer();
@@ -39,8 +46,8 @@ server.on('request', webApp);
 
 server.listen(WEB_PORT, () => {
   console.log(`Cache Hunter Web App running on http://localhost:${WEB_PORT}`);
-  console.log(`Proxy port: ${PROXY_PORT}`);
-  console.log(`Default target: ${DEFAULT_TARGET_HOST}:${DEFAULT_TARGET_PORT}`);
+  console.log(`Proxy port: ${persisted.proxyPort}`);
+  console.log(`Default target: ${persisted.targetHost}:${persisted.targetPort}`);
   console.log(`Data directory: ${DATA_DIR}`);
 
   engine.start().catch((err: Error) => {
