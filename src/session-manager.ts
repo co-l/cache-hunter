@@ -68,13 +68,18 @@ export function listSessions(): SessionMeta[] {
   return manifest.sessions.sort((a, b) => b.created_at - a.created_at);
 }
 
-export function createSession(targetHost: string, targetPort: number, model: string | null): SessionMeta {
+export function createSession(
+  targetHost: string,
+  targetPort: number,
+  model: string | null,
+  id?: string
+): SessionMeta {
   const now = Date.now();
-  const id = new Date(now).toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);
-  const filename = `${id}.db`;
+  const sid = id || new Date(now).toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);
+  const filename = `${sid}.db`;
 
   const session: SessionMeta = {
-    id,
+    id: sid,
     filename,
     created_at: now,
     ended_at: null,
@@ -109,6 +114,13 @@ export async function finalizeSession(id: string): Promise<void> {
     if (countResult.length > 0 && countResult[0].values.length > 0) {
       session.request_count = countResult[0].values[0][0] as number;
     }
+    if (session.name === undefined) {
+      const { analyzeThreads, generateSessionTitle } = await import('./thread-analyzer.js');
+      const completions = await readSessionCompletions(db);
+      const analysis = analyzeThreads(completions);
+      const title = generateSessionTitle(completions, analysis);
+      if (title !== 'Untitled session') session.name = title;
+    }
     db.close();
   }
 
@@ -126,6 +138,37 @@ export function deleteSession(id: string): void {
 
   manifest.sessions.splice(idx, 1);
   writeManifest(manifest);
+}
+
+async function readSessionCompletions(
+  db: Database
+): Promise<Array<{
+  messages: Array<Record<string, unknown>>;
+  tools: any[];
+  path: string;
+  reasoningEffort?: string;
+}>> {
+  const query = `
+    SELECT body, path
+    FROM requests
+    WHERE path IN ('/v1/chat/completions', '/v1/responses')
+    ORDER BY timestamp
+  `;
+  const results = db.exec(query);
+  if (results.length === 0 || results[0].values.length === 0) return [];
+
+  const { parseRequestBody } = await import('./parse-api.js');
+  return results[0].values.map((row: any[]) => {
+    const reqBody = row[0] as string;
+    const path = row[1] as string;
+    const parsed = parseRequestBody(reqBody, path);
+    return {
+      messages: parsed.messages,
+      tools: parsed.tools,
+      path,
+      reasoningEffort: parsed.reasoningEffort,
+    };
+  });
 }
 
 export function renameSession(id: string, name: string): SessionMeta | null {
@@ -191,6 +234,54 @@ export async function deleteSessionCall(id: string, callIndex: number): Promise<
   return true
 }
 
+export async function backfillSessionTitles(): Promise<number> {
+  const manifest = readManifest()
+  let changed = 0
+
+  for (const session of manifest.sessions) {
+    if (session.status !== 'completed') continue
+    if (session.name !== undefined) continue
+
+    const dbPath = join(DATA_DIR, session.filename)
+    if (!existsSync(dbPath)) continue
+
+    let db: Database | null = null
+    try {
+      const SQL = await getSqlJs()
+      const data = readFileSync(dbPath)
+      db = new SQL.Database(data)
+      const completions = await readSessionCompletions(db)
+      if (completions.length === 0) continue
+
+      const { analyzeThreads, generateSessionTitle } = await import('./thread-analyzer.js')
+      const analysis = analyzeThreads(completions)
+      const title = generateSessionTitle(completions, analysis)
+      if (title === 'Untitled session') continue
+
+      session.name = title
+      changed++
+    } catch (error) {
+      console.error(`[Backfill] Skipping unreadable session ${session.id}:`, error)
+    } finally {
+      if (db) db.close()
+    }
+  }
+
+  if (changed > 0) writeManifest(manifest)
+  return changed
+}
+
+export async function finalizeStaleSessions(): Promise<number> {
+  const manifest = readManifest()
+  const staleIds = manifest.sessions
+    .filter(s => s.status === 'active')
+    .map(s => s.id)
+  for (const id of staleIds) {
+    await finalizeSession(id)
+  }
+  return staleIds.length
+}
+
 export async function getSessionHashGrid(id: string): Promise<any> {
   const dbPath = getSessionDbPath(id);
   if (!dbPath) return null;
@@ -199,33 +290,19 @@ export async function getSessionHashGrid(id: string): Promise<any> {
   const data = readFileSync(dbPath);
   const db = new SQL.Database(data);
 
-  const query = `
-    SELECT body, path, timestamp
-    FROM requests
-    WHERE path IN ('/v1/chat/completions', '/v1/responses')
-    ORDER BY timestamp
-  `;
-
-  const results = db.exec(query);
+  const completions = await readSessionCompletions(db);
   db.close();
 
-  if (results.length === 0 || results[0].values.length === 0) return null;
+  if (completions.length === 0) return null;
 
   const { buildTreeData } = await import('./hash-grid.js');
-  const { parseRequestBody } = await import('./parse-api.js');
+  const { analyzeThreads } = await import('./thread-analyzer.js');
 
-  const completions = results[0].values.map((row: any[]) => {
-    const reqBody = row[0] as string;
-    const path = row[1] as string;
-    const parsed = parseRequestBody(reqBody, path);
-
-    return {
-      messages: parsed.messages,
-      tools: parsed.tools,
-      path,
-      reasoningEffort: parsed.reasoningEffort,
-    };
-  });
-
-  return buildTreeData(completions, true);
+  const analysis = analyzeThreads(completions);
+  const tree = buildTreeData(completions, true);
+  return {
+    ...tree,
+    _threads: analysis.threads,
+    _columnThread: analysis.columnThread,
+  };
 }

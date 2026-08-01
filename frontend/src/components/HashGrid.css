@@ -45,8 +45,30 @@
   z-index: 9;
 }
 
+/* Thread band row (first header row) sticks at top 0 */
+.hash-grid .thread-band-row th {
+  top: 0;
+  height: 22px;
+  font-size: 9px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #ddd;
+  cursor: default;
+  padding: 1px 6px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid #555;
+}
+
+/* Call-label header row sits below the band */
+.hash-grid thead tr:not(.thread-band-row) th {
+  top: 23px;
+}
+
 .hash-grid tbody tr:nth-child(1) td {
-  top: 24px;
+  top: 46px;
   background-image: linear-gradient(#444, #444);
   background-size: 100% 1px;
   background-position: bottom;
@@ -56,7 +78,7 @@
 }
 
 .hash-grid tbody tr:nth-child(2) td {
-  top: 48px;
+  top: 70px;
   background-image: linear-gradient(#444, #444);
   background-size: 100% 1px;
   background-position: bottom;
@@ -66,7 +88,37 @@
 }
 
 .hash-grid tbody tr:nth-child(3) td {
-  top: 72px;
+  top: 94px;
+}
+
+/* Thread colors — column tint + band fill */
+.hash-grid .tc-0 { background-image: linear-gradient(rgba(96, 165, 250, 0.075), rgba(96, 165, 250, 0.075)); }
+.hash-grid .tc-1 { background-image: linear-gradient(rgba(166, 153, 235, 0.075), rgba(166, 153, 235, 0.075)); }
+.hash-grid .tc-2 { background-image: linear-gradient(rgba(79, 201, 174, 0.075), rgba(79, 201, 174, 0.075)); }
+.hash-grid .tc-3 { background-image: linear-gradient(rgba(248, 171, 107, 0.075), rgba(248, 171, 107, 0.075)); }
+.hash-grid .tc-4 { background-image: linear-gradient(rgba(247, 156, 199, 0.075), rgba(247, 156, 199, 0.075)); }
+.hash-grid .tc-5 { background-image: linear-gradient(rgba(113, 221, 154, 0.075), rgba(113, 221, 154, 0.075)); }
+
+.hash-grid .thread-band-cell.tc-0 { background-color: rgba(96, 165, 250, 0.32); }
+.hash-grid .thread-band-cell.tc-1 { background-color: rgba(166, 153, 235, 0.32); }
+.hash-grid .thread-band-cell.tc-2 { background-color: rgba(79, 201, 174, 0.32); }
+.hash-grid .thread-band-cell.tc-3 { background-color: rgba(248, 171, 107, 0.32); }
+.hash-grid .thread-band-cell.tc-4 { background-color: rgba(247, 156, 199, 0.32); }
+.hash-grid .thread-band-cell.tc-5 { background-color: rgba(113, 221, 154, 0.32); }
+
+.hash-grid td.thread-start,
+.hash-grid th.thread-start,
+.hash-grid .thread-band-cell.band-start {
+  border-left: 1px solid #777;
+}
+
+.hash-grid td.title-col,
+.hash-grid th.title-col {
+  opacity: 0.45;
+}
+
+.hash-grid .thread-band-cell.title-col {
+  opacity: 0.6;
 }
 
 .hash-grid th.col-diff {

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import { ProxyEngine } from './proxy-engine.js';
 import { createApp } from './app.js';
-import { setDataDir } from './session-manager.js';
+import { setDataDir, backfillSessionTitles, finalizeStaleSessions } from './session-manager.js';
 import { attachWSServer } from './ws-server.js';
 import { loadProxyConfig } from './config-store.js';
 
@@ -49,6 +49,18 @@ server.listen(WEB_PORT, () => {
   console.log(`Proxy port: ${persisted.proxyPort}`);
   console.log(`Default target: ${persisted.targetHost}:${persisted.targetPort}`);
   console.log(`Data directory: ${DATA_DIR}`);
+
+  finalizeStaleSessions()
+    .then((count) => {
+      if (count > 0) console.log(`Finalized ${count} stale session(s) left from a previous run`);
+      return backfillSessionTitles()
+    })
+    .then((count) => {
+      if (count > 0) console.log(`Backfilled auto-titles for ${count} session(s)`);
+    })
+    .catch((err: Error) => {
+      console.error('Startup session sweep failed:', err.message);
+    });
 
   engine.start().catch((err: Error) => {
     console.error(`Failed to start proxy: ${err.message}`);

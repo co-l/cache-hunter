@@ -1,5 +1,6 @@
 {
-  "command": "npm run dev",
-  "url": "http://localhost:5173",
-  "hotReload": true
+  "command": "WEB_PORT=${PORT} npm run dev",
+  "url": "http://localhost:${PORT}",
+  "hotReload": true,
+  "disableInspect": false
 }

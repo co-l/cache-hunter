@@ -1,7 +1,8 @@
-import { useState, useCallback, useRef, useEffect, memo } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo, memo } from 'react';
 import type { TreeData } from '../hooks/useApi';
 import { JsonViewer } from './JsonViewer';
 import { JsonDiff } from './JsonDiff';
+import { computeIsDiffCell } from './hashDiff';
 import './HashGrid.css';
 
 function gridDataEqual(a: TreeData, b: TreeData): boolean {
@@ -33,6 +34,41 @@ export const HashGrid = memo(function HashGrid({ data, onDeleteColumn, autoScrol
   const header = lines[0];
   const dataRows = lines.slice(1);
   const numCols = header.length;
+  const threadInfos = data._threads ?? [];
+  const columnThread = data._columnThread ?? [];
+
+  const threadLookup = useMemo(() => {
+    const idToIdx = new Map<number, number>();
+    threadInfos.forEach((t, i) => idToIdx.set(t.id, i));
+    const starts: boolean[] = [];
+    let prevTi: number | null = null;
+    for (let ci = 0; ci < numCols; ci++) {
+      const tid = columnThread[ci];
+      const ti = tid === undefined || tid === null ? null : (idToIdx.get(tid) ?? null);
+      starts[ci] = ti !== null && ti !== prevTi;
+      prevTi = ti;
+    }
+    return { idToIdx, starts };
+  }, [threadInfos, columnThread, numCols]);
+
+  const threadIndexOf = useCallback((ci: number): number | null => {
+    const tid = columnThread[ci];
+    if (tid === undefined || tid === null) return null;
+    const ti = threadLookup.idToIdx.get(tid);
+    return ti === undefined ? null : ti;
+  }, [columnThread, threadLookup]);
+
+  const threadClassOf = useCallback((ci: number): string => {
+    const tid = columnThread[ci];
+    if (tid === undefined || tid === null) return '';
+    const ti = threadLookup.idToIdx.get(tid);
+    if (ti === undefined || ti === -1) return '';
+    const info = threadInfos[ti];
+    let cls = `tc-${info.id % 6}`;
+    if (threadLookup.starts[ci]) cls += ' thread-start';
+    if (info.kind === 'title') cls += ' title-col';
+    return cls;
+  }, [columnThread, threadLookup, threadInfos]);
 
   const [excludedCols, setExcludedCols] = useState<Set<number>>(new Set());
   const [compareA, setCompareA] = useState<string | null>(null);
@@ -72,21 +108,8 @@ export const HashGrid = memo(function HashGrid({ data, onDeleteColumn, autoScrol
   }, []);
 
   const isDiffCell = useCallback((rowIdx: number, colIdx: number): boolean => {
-    const cellHash = dataRows[rowIdx][colIdx]?.trim();
-    if (!cellHash) return false;
-
-    const nonExcluded: number[] = [];
-    for (let c = 0; c < numCols; c++) {
-      if (!excludedCols.has(c)) nonExcluded.push(c);
-    }
-
-    const prevNonExcluded = nonExcluded.filter(c => c < colIdx);
-    if (prevNonExcluded.length === 0) return false;
-
-    const lastPrev = prevNonExcluded[prevNonExcluded.length - 1];
-    const prevHash = dataRows[rowIdx][lastPrev]?.trim();
-    return !!prevHash && cellHash !== prevHash;
-  }, [dataRows, numCols, excludedCols]);
+    return computeIsDiffCell(dataRows[rowIdx], columnThread, excludedCols, colIdx);
+  }, [dataRows, columnThread, excludedCols]);
 
   const colHasDiff = useCallback((colIdx: number): boolean => {
     for (let ri = 0; ri < dataRows.length; ri++) {
@@ -144,10 +167,29 @@ export const HashGrid = memo(function HashGrid({ data, onDeleteColumn, autoScrol
       <div className="hash-grid-wrapper">
         <table className="hash-grid">
           <thead>
+            <tr className="thread-band-row">
+              {header.map((_label, ci) => {
+                const ti = threadIndexOf(ci);
+                const info = ti !== null && ti !== -1 ? threadInfos[ti] : null;
+                const isStart = !!info && !!threadLookup.starts[ci];
+                const colorIdx = info ? info.id % 6 : 0;
+                const isTitle = info?.kind === 'title';
+                return (
+                  <th
+                    key={'band-' + ci}
+                    className={`thread-band-cell tc-${colorIdx}${isStart ? ' band-start' : ''}${isTitle ? ' title-col' : ''}`}
+                  >
+                    {isStart && info ? info.label : ''}
+                  </th>
+                )
+              })}
+              <th className="content-cell" />
+            </tr>
             <tr>
               {header.map((label, ci) => {
                 const hasDiff = colHasDiff(ci)
                 let thCls = 'hash-cell'
+                thCls += ' ' + threadClassOf(ci)
                 if (excludedCols.has(ci)) thCls += ' excluded'
                 if (hasDiff) thCls += ' col-diff'
                 else thCls += ' col-match'
@@ -180,6 +222,7 @@ export const HashGrid = memo(function HashGrid({ data, onDeleteColumn, autoScrol
                   {row.map((cell, ci) => {
                     const hash = cell?.trim() || null;
                     let cls = 'hash-cell';
+                    cls += ' ' + threadClassOf(ci);
                     if (hash && isDiffCell(ri, ci)) cls += ' diff-cell';
                     if (excludedCols.has(ci)) cls += ' excluded';
                     if (hash && hash === compareA) cls += ' compare-a';

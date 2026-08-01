@@ -42,6 +42,18 @@ export interface TreeData {
   hash_map: Record<string, string>;
   _grid: { rows: number; cols: number; cells: (string | null)[][] };
   _toolsHashes: (string | null)[];
+  _threads?: ThreadInfo[];
+  _columnThread?: number[];
+}
+
+export type ThreadKind = 'primary' | 'subagent' | 'title';
+
+export interface ThreadInfo {
+  id: number;
+  kind: ThreadKind;
+  label: string;
+  callIndices: number[];
+  hashCount: number;
 }
 
 export const api = {

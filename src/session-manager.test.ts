@@ -11,6 +11,9 @@ import {
   deleteSessionCall,
   getSessionDbPath,
   renameSession,
+  getSessionHashGrid,
+  backfillSessionTitles,
+  finalizeStaleSessions,
   setDataDir,
 } from './session-manager.js';
 
@@ -165,5 +168,192 @@ describe('SessionManager', () => {
 
     const cleared = renameSession(session.id, '')
     expect(cleared!.name).toBeUndefined()
+  })
+
+  async function writeRequests(rows: Array<{ id: string; ts: number; body: string }>, sessionId?: string) {
+    const session = createSession('localhost', 8000, 'test-model', sessionId)
+    const dbPath = getSessionDbPath(session.id)!
+    const initSqlJs = (await import('sql.js')).default
+    const SQL = await initSqlJs()
+    const db = new SQL.Database()
+    db.run(`CREATE TABLE IF NOT EXISTS requests (
+      id TEXT PRIMARY KEY, timestamp INTEGER NOT NULL, method TEXT NOT NULL,
+      path TEXT NOT NULL, headers TEXT NOT NULL, body TEXT NOT NULL,
+      cache_salt TEXT, client_ip TEXT
+    )`)
+    for (const r of rows) {
+      db.run("INSERT INTO requests (id, timestamp, method, path, headers, body) VALUES (?, ?, 'POST', '/v1/chat/completions', '{}', ?)",
+        [r.id, r.ts, r.body])
+    }
+    writeFileSync(dbPath, Buffer.from(db.export()))
+    db.close()
+    return session
+  }
+
+  it('should auto-title a session on finalize from the primary thread', async () => {
+    const session = await writeRequests([
+      {
+        id: 't1', ts: 100,
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'Fix the auth flow please' }] }),
+      },
+      {
+        id: 't2', ts: 150,
+        body: JSON.stringify({ messages: [{ role: 'user', content: '## sub agent - verify something' }] }),
+      },
+    ])
+
+    await finalizeSession(session.id)
+
+    const sessions = listSessions()
+    const finalized = sessions.find(s => s.id === session.id)!
+    expect(finalized.name).toBe('Fix the auth flow please')
+  })
+
+  it('should not override an existing manual name on finalize', async () => {
+    const session = await writeRequests([
+      {
+        id: 't1', ts: 100,
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'Something to do' }] }),
+      },
+    ])
+    renameSession(session.id, 'Hand Picked Name')
+
+    await finalizeSession(session.id)
+
+    const sessions = listSessions()
+    const finalized = sessions.find(s => s.id === session.id)!
+    expect(finalized.name).toBe('Hand Picked Name')
+  })
+
+  it('should enrich the session hash grid with thread metadata', async () => {
+    const session = await writeRequests([
+      {
+        id: 't1', ts: 100,
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'main task' }] }),
+      },
+      {
+        id: 't2', ts: 105,
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'Generate a concise, descriptive session name (max 50 characters)' }] }),
+      },
+      {
+        id: 't3', ts: 110,
+        body: JSON.stringify({ messages: [{ role: 'user', content: '## sub agent prompt here' }] }),
+      },
+    ])
+
+    const grid = await getSessionHashGrid(session.id)
+    expect(grid._threads).toBeDefined()
+    expect(grid._columnThread).toBeDefined()
+    expect(grid._columnThread).toHaveLength(3)
+    const kinds = grid._threads.map((t: any) => t.kind)
+    expect(kinds).toContain('primary')
+    expect(kinds).toContain('title')
+    expect(kinds).toContain('subagent')
+  })
+
+  it('should preserve reasoning effort in the enriched hash grid', async () => {
+    const session = await writeRequests([
+      {
+        id: 't1', ts: 100,
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'main task' }], reasoning_effort: 'max' }),
+      },
+    ])
+
+    const grid = await getSessionHashGrid(session.id)
+    expect(grid.lines[1][0]).toBe('max')
+  })
+
+  async function markCompleted(sessionId: string) {
+    const man = JSON.parse(readFileSync(join(TEST_DATA_DIR, 'manifest.json'), 'utf-8'))
+    const s = man.sessions.find((x: any) => x.id === sessionId)
+    s.status = 'completed'
+    s.ended_at = Date.now()
+    writeFileSync(join(TEST_DATA_DIR, 'manifest.json'), JSON.stringify(man, null, 2))
+  }
+
+  it('should backfill auto-titles for completed sessions without a name', async () => {
+    const old = await writeRequests([
+      { id: 't1', ts: 100, body: JSON.stringify({ messages: [{ role: 'user', content: 'Fix the auth flow' }] }) },
+    ], 'backfill-old')
+    await markCompleted(old.id)
+
+    const named = await writeRequests([
+      { id: 't1', ts: 100, body: JSON.stringify({ messages: [{ role: 'user', content: 'irrelevant' }] }) },
+    ], 'backfill-named')
+    renameSession(named.id, 'Keep Me')
+    await markCompleted(named.id)
+
+    const count = await backfillSessionTitles()
+    expect(count).toBe(1)
+
+    const sessions = listSessions()
+    expect(sessions.find(s => s.id === old.id)!.name).toBe('Fix the auth flow')
+    expect(sessions.find(s => s.id === named.id)!.name).toBe('Keep Me')
+  })
+
+  it('should skip backfill when the derived title would be Untitled session', async () => {
+    const s = await writeRequests([
+      { id: 't1', ts: 100, body: JSON.stringify({ messages: [{ role: 'system', content: 'You are an agent' }] }) },
+    ], 'backfill-untitled')
+    await markCompleted(s.id)
+
+    const count = await backfillSessionTitles()
+    expect(count).toBe(0)
+    expect(listSessions().find(x => x.id === s.id)!.name).toBeUndefined()
+  })
+
+  it('should not crash the backfill on an unreadable session db', async () => {
+    const s = createSession('localhost', 8000, 'test-model', 'backfill-corrupt')
+    writeFileSync(getSessionDbPath(s.id)!, Buffer.from('this is not a sqlite file'))
+    const man = JSON.parse(readFileSync(join(TEST_DATA_DIR, 'manifest.json'), 'utf-8'))
+    const entry = man.sessions.find((x: any) => x.id === s.id)
+    entry.status = 'completed'
+    entry.ended_at = Date.now()
+    writeFileSync(join(TEST_DATA_DIR, 'manifest.json'), JSON.stringify(man, null, 2))
+
+    const count = await backfillSessionTitles()
+    expect(count).toBe(0)
+    expect(listSessions().find(x => x.id === s.id)!.name).toBeUndefined()
+  })
+
+  it('should leave a session unnamed on finalize when no title can be derived', async () => {
+    const s = await writeRequests([
+      { id: 't1', ts: 100, body: JSON.stringify({ messages: [{ role: 'system', content: 'You are an agent' }] }) },
+    ], 'finalize-untitled')
+
+    await finalizeSession(s.id)
+
+    expect(listSessions().find(x => x.id === s.id)!.name).toBeUndefined()
+  })
+
+  it('should finalize stale active sessions on startup sweep', async () => {
+    const s = await writeRequests([
+      { id: 't1', ts: 100, body: JSON.stringify({ messages: [{ role: 'user', content: 'Fix the auth flow' }] }) },
+    ], 'stale-active')
+
+    expect(getActiveSession()!.id).toBe(s.id)
+
+    const count = await finalizeStaleSessions()
+    expect(count).toBe(1)
+
+    const sessions = listSessions()
+    const fin = sessions.find(x => x.id === s.id)!
+    expect(fin.status).toBe('completed')
+    expect(fin.ended_at).not.toBeNull()
+    expect(fin.name).toBe('Fix the auth flow')
+    expect(getActiveSession()).toBeNull()
+  })
+
+  it('should be a no-op when there are no active sessions', async () => {
+    const count = await finalizeStaleSessions()
+    expect(count).toBe(0)
+  })
+
+  it('should finalize a stale active session even when its db file is missing', async () => {
+    const s = createSession('localhost', 8000, 'test-model', 'stale-nodb')
+
+    const count = await finalizeStaleSessions()
+    expect(count).toBe(1)
+    expect(listSessions().find(x => x.id === s.id)!.status).toBe('completed')
   })
 });
