@@ -1,7 +1,36 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { createServer, IncomingMessage } from 'http'
 import { AddressInfo } from 'net'
-import { ProxyEngine } from './proxy-engine.js'
+import { ProxyEngine, concatUtf8 } from './proxy-engine.js'
+
+describe('concatUtf8', () => {
+  it('decodes chunks joined across multi-byte boundaries losslessly', () => {
+    // '│' is U+2502, encoded as E2 94 82 (3 bytes)
+    const bytes = Buffer.from('a│b', 'utf8')
+    const cut = 2 // split inside the 3-byte sequence
+    const result = concatUtf8([bytes.subarray(0, cut), bytes.subarray(cut)])
+
+    expect(result.text).toBe('a│b')
+    expect(result.text).not.toContain('\ufffd')
+    expect(result.raw.equals(bytes)).toBe(true)
+  })
+
+  it('round-trips the raw bytes untouched regardless of split position', () => {
+    const bytes = Buffer.from('│││', 'utf8')
+    for (let cut = 1; cut < bytes.length; cut++) {
+      const result = concatUtf8([bytes.subarray(0, cut), bytes.subarray(cut)])
+      expect(result.raw.equals(bytes)).toBe(true)
+      expect(result.text).toBe('│││')
+      expect(result.text).not.toContain('\ufffd')
+    }
+  })
+
+  it('handles an empty chunk list', () => {
+    const result = concatUtf8([])
+    expect(result.text).toBe('')
+    expect(result.raw.length).toBe(0)
+  })
+})
 
 describe('ProxyEngine', () => {
   let targetServer: any

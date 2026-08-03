@@ -1,6 +1,11 @@
 import { createServer, IncomingMessage, ServerResponse, Server, request as httpRequest, IncomingHttpHeaders } from 'http'
 import { EventEmitter } from 'events'
 
+export function concatUtf8(chunks: readonly Buffer[]): { raw: Buffer; text: string } {
+  const raw = Buffer.concat([...chunks])
+  return { raw, text: raw.toString('utf8') }
+}
+
 export interface ProxyEngineConfig {
   targetHost: string
   targetPort: number
@@ -119,11 +124,12 @@ export class ProxyEngine extends EventEmitter {
     const startTime = Date.now()
     const clientIp = req.socket.remoteAddress || 'unknown'
 
-    let requestBody = ''
+    let requestChunks: Buffer[] = []
 
-    req.on('data', (chunk) => { requestBody += chunk })
+    req.on('data', (chunk) => { requestChunks.push(chunk) })
 
     req.on('end', () => {
+      const { raw: requestRaw, text: requestBody } = concatUtf8(requestChunks)
       const cacheSalt = this.extractCacheSalt(requestBody)
       const requestHeaders = JSON.stringify(req.headers)
 
@@ -166,10 +172,10 @@ export class ProxyEngine extends EventEmitter {
           proxyRes.on('data', (chunk) => { res.write(chunk) })
           proxyRes.on('end', () => { res.end() })
         } else {
-          let responseBody = ''
-          proxyRes.on('data', (chunk) => { responseBody += chunk.toString() })
+          const responseChunks: Buffer[] = []
+          proxyRes.on('data', (chunk) => { responseChunks.push(chunk) })
           proxyRes.on('end', () => {
-            res.write(responseBody)
+            res.write(Buffer.concat(responseChunks))
             res.end()
           })
         }
@@ -184,7 +190,7 @@ export class ProxyEngine extends EventEmitter {
         res.end(JSON.stringify({ error: 'Bad Gateway', message: error.message }))
       })
 
-      proxyReq.write(requestBody)
+      proxyReq.write(requestRaw)
       proxyReq.end()
     })
   }
