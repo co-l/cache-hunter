@@ -1,4 +1,5 @@
 import { createServer, IncomingMessage, ServerResponse, Server, request as httpRequest, IncomingHttpHeaders } from 'http'
+import { request as httpsRequest, Agent as HttpsAgent } from 'https'
 import { EventEmitter } from 'events'
 
 export function concatUtf8(chunks: readonly Buffer[]): { raw: Buffer; text: string } {
@@ -10,6 +11,8 @@ export interface ProxyEngineConfig {
   targetHost: string
   targetPort: number
   proxyPort: number
+  targetScheme: 'http' | 'https'
+  _httpsAgent?: HttpsAgent
 }
 
 export interface ProxyRequestData {
@@ -109,7 +112,7 @@ export class ProxyEngine extends EventEmitter {
 
   private async fetchActiveModel(): Promise<void> {
     try {
-      const res = await fetch(`http://${this.config.targetHost}:${this.config.targetPort}/v1/models`)
+      const res = await fetch(`${this.config.targetScheme}://${this.config.targetHost}:${this.config.targetPort}/v1/models`)
       const data = await res.json() as { data: Array<{ id: string }> }
       if (data.data && data.data.length > 0) {
         this._activeModel = data.data[0].id
@@ -137,7 +140,7 @@ export class ProxyEngine extends EventEmitter {
         id: requestId,
         timestamp: startTime,
         method: req.method || 'UNKNOWN',
-        path: req.url || '/',
+        path: req.url ? new URL(req.url, 'http://localhost').pathname : '/',
         headers: requestHeaders,
         body: requestBody,
         cache_salt: cacheSalt,
@@ -149,11 +152,17 @@ export class ProxyEngine extends EventEmitter {
       }
 
       const targetPath = req.url || '/'
-      const targetUrl = `http://${this.config.targetHost}:${this.config.targetPort}${targetPath}`
+      const targetUrl = `${this.config.targetScheme}://${this.config.targetHost}:${this.config.targetPort}${targetPath}`
 
-      const proxyReq = httpRequest(targetUrl, {
+      const makeRequest = this.config.targetScheme === 'https' ? httpsRequest : httpRequest
+      const agent = this.config.targetScheme === 'https'
+        ? (this.config._httpsAgent ?? new HttpsAgent({ rejectUnauthorized: false }))
+        : undefined
+      const forwardHeaders = { ...req.headers, host: this.config.targetHost }
+      const proxyReq = makeRequest(targetUrl, {
         method: req.method,
-        headers: req.headers,
+        headers: forwardHeaders,
+        agent,
       })
 
       proxyReq.on('response', (proxyRes) => {

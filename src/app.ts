@@ -51,7 +51,7 @@ export function createApp(engine: ProxyEngine, dataDir: string = DATA_DIR, broad
   // Config
   app.get('/api/config', (_req: Request, res: Response) => {
     const cfg = engine.getConfig()
-    res.json({ targetHost: cfg.targetHost, targetPort: cfg.targetPort, proxyPort: cfg.proxyPort })
+    res.json({ targetHost: cfg.targetHost, targetPort: cfg.targetPort, proxyPort: cfg.proxyPort, targetScheme: cfg.targetScheme })
   })
 
   app.put('/api/config', (req: Request, res: Response) => {
@@ -59,14 +59,15 @@ export function createApp(engine: ProxyEngine, dataDir: string = DATA_DIR, broad
       res.status(409).json({ error: 'Cannot change config while proxy is running' })
       return
     }
-    const { targetHost, targetPort } = req.body
+    const { targetHost, targetPort, targetScheme } = req.body
     const updates: any = {}
     if (targetHost) updates.targetHost = targetHost
     if (targetPort) updates.targetPort = parseInt(targetPort, 10)
+    if (targetScheme === 'http' || targetScheme === 'https') updates.targetScheme = targetScheme
     engine.updateConfig(updates)
     const cfg = engine.getConfig()
     saveProxyConfig(dataDir, cfg)
-    res.json({ targetHost: cfg.targetHost, targetPort: cfg.targetPort })
+    res.json({ targetHost: cfg.targetHost, targetPort: cfg.targetPort, targetScheme: cfg.targetScheme })
   })
 
   // Proxy

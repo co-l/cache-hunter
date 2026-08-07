@@ -114,4 +114,76 @@ describe('parseRequestBody', () => {
   });
 });
 
+describe('parseRequestBody — Anthropic /v1/messages', () => {
+  it('parses basic messages with string system', () => {
+    const body = JSON.stringify({
+      model: 'claude-opus-4-5',
+      system: 'You are helpful',
+      messages: [{ role: 'user', content: 'Hello' }],
+    });
+    const result = parseRequestBody(body, '/v1/messages');
+    expect(result.messages).toHaveLength(2);
+    expect(result.messages[0]).toEqual({ role: 'system', content: 'You are helpful' });
+    expect(result.messages[1]).toEqual({ role: 'user', content: 'Hello' });
+  });
+
+  it('parses messages without system field', () => {
+    const body = JSON.stringify({
+      model: 'claude-opus-4-5',
+      messages: [{ role: 'user', content: 'Hi' }],
+    });
+    const result = parseRequestBody(body, '/v1/messages');
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]).toEqual({ role: 'user', content: 'Hi' });
+  });
+
+  it('parses system as array of content blocks', () => {
+    const system = [{ type: 'text', text: 'Be concise' }];
+    const body = JSON.stringify({
+      model: 'claude-opus-4-5',
+      system,
+      messages: [{ role: 'user', content: 'Hi' }],
+    });
+    const result = parseRequestBody(body, '/v1/messages');
+    expect(result.messages[0]).toEqual({ role: 'system', content: system });
+  });
+
+  it('includes tools as-is (Anthropic format)', () => {
+    const tools = [{ name: 'search', description: 'Web search', input_schema: { type: 'object', properties: {} } }];
+    const body = JSON.stringify({
+      model: 'claude-opus-4-5',
+      messages: [{ role: 'user', content: 'Search something' }],
+      tools,
+    });
+    const result = parseRequestBody(body, '/v1/messages');
+    expect(result.tools).toEqual(tools);
+  });
+
+  it('maps thinking budget_tokens to reasoningEffort', () => {
+    const body = JSON.stringify({
+      model: 'claude-opus-4-5',
+      messages: [{ role: 'user', content: 'Think hard' }],
+      thinking: { type: 'enabled', budget_tokens: 5000 },
+    });
+    const result = parseRequestBody(body, '/v1/messages');
+    expect(result.reasoningEffort).toBe('5000');
+  });
+
+  it('returns no reasoningEffort when thinking is absent', () => {
+    const body = JSON.stringify({
+      model: 'claude-opus-4-5',
+      messages: [{ role: 'user', content: 'Hello' }],
+    });
+    const result = parseRequestBody(body, '/v1/messages');
+    expect(result.reasoningEffort).toBeUndefined();
+  });
+
+  it('handles missing messages field', () => {
+    const body = JSON.stringify({ model: 'claude-opus-4-5', system: 'Be helpful' });
+    const result = parseRequestBody(body, '/v1/messages');
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]).toEqual({ role: 'system', content: 'Be helpful' });
+  });
+});
+
 

@@ -66,7 +66,7 @@ describe('ProxyEngine', () => {
   })
 
   it('should start and stop', async () => {
-    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0 })
+    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0, targetScheme: 'http' })
     expect(engine.running).toBe(false)
 
     await engine.start()
@@ -77,7 +77,7 @@ describe('ProxyEngine', () => {
   })
 
   it('should emit start and stop events', async () => {
-    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0 })
+    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0, targetScheme: 'http' })
     const events: string[] = []
 
     engine.on('start', () => events.push('start'))
@@ -90,7 +90,7 @@ describe('ProxyEngine', () => {
   })
 
   it('should emit request event when body is received', async () => {
-    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0 })
+    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0, targetScheme: 'http' })
     const requestEvents: any[] = []
 
     engine.on('request', (evt) => requestEvents.push(evt))
@@ -127,7 +127,7 @@ describe('ProxyEngine', () => {
   })
 
   it('should not emit request event when not capturing', async () => {
-    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0 })
+    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0, targetScheme: 'http' })
     const requestEvents: any[] = []
 
     engine.on('request', (evt) => requestEvents.push(evt))
@@ -160,7 +160,7 @@ describe('ProxyEngine', () => {
   })
 
   it('should toggle capture state', async () => {
-    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0 })
+    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0, targetScheme: 'http' })
     expect(engine.capturing).toBe(false)
 
     await engine.start()
@@ -174,19 +174,19 @@ describe('ProxyEngine', () => {
   })
 
   it('should error if starting proxy twice', async () => {
-    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0 })
+    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0, targetScheme: 'http' })
     await engine.start()
     await expect(engine.start()).rejects.toThrow('Proxy is already running')
     await engine.stop()
   })
 
   it('should error if capturing without proxy running', () => {
-    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0 })
+    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0, targetScheme: 'http' })
     expect(() => engine.startCapture()).toThrow('Proxy must be running to capture')
   })
 
   it('should update config only when not running', () => {
-    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort: 8000, proxyPort: 8080 })
+    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort: 8000, proxyPort: 8080, targetScheme: 'http' })
     engine.updateConfig({ targetHost: '10.0.0.1', targetPort: 9000 })
     const cfg = engine.getConfig()
     expect(cfg.targetHost).toBe('10.0.0.1')
@@ -194,7 +194,7 @@ describe('ProxyEngine', () => {
   })
 
   it('should throw when updating config while running', async () => {
-    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0 })
+    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0, targetScheme: 'http' })
     await engine.start()
     expect(() => engine.updateConfig({ targetHost: 'other' })).toThrow('Cannot update config while proxy is running')
     await engine.stop()
