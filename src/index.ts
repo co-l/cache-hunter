@@ -21,6 +21,7 @@ const envDefaults = {
   targetHost: process.env.TARGET_HOST || '127.0.0.1',
   targetPort: parseInt(process.env.TARGET_PORT || '8000', 10),
   proxyPort: PROXY_PORT_ENV,
+  targetScheme: (process.env.TARGET_SCHEME === 'https' ? 'https' : 'http') as 'http' | 'https',
 };
 
 const persisted = loadProxyConfig(DATA_DIR, envDefaults);
@@ -29,6 +30,7 @@ const engine = new ProxyEngine({
   targetHost: persisted.targetHost,
   targetPort: persisted.targetPort,
   proxyPort: persisted.proxyPort,
+  targetScheme: persisted.targetScheme,
 });
 
 const server = createServer();
@@ -47,7 +49,7 @@ server.on('request', webApp);
 server.listen(WEB_PORT, () => {
   console.log(`Cache Hunter Web App running on http://localhost:${WEB_PORT}`);
   console.log(`Proxy port: ${persisted.proxyPort}`);
-  console.log(`Default target: ${persisted.targetHost}:${persisted.targetPort}`);
+  console.log(`Default target: ${persisted.targetScheme}://${persisted.targetHost}:${persisted.targetPort}`);
   console.log(`Data directory: ${DATA_DIR}`);
 
   finalizeStaleSessions()

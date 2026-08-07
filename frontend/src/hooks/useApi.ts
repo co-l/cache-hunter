@@ -22,6 +22,7 @@ export interface Config {
   targetHost: string;
   targetPort: number;
   proxyPort: number;
+  targetScheme: 'http' | 'https';
 }
 
 export interface SessionMeta {
@@ -58,7 +59,7 @@ export interface ThreadInfo {
 
 export const api = {
   getConfig: () => request<Config>('/config'),
-  updateConfig: (cfg: { targetHost?: string; targetPort?: number }) =>
+  updateConfig: (cfg: { targetHost?: string; targetPort?: number; targetScheme?: 'http' | 'https' }) =>
     request<Config>('/config', { method: 'PUT', body: JSON.stringify(cfg) }),
 
   proxyStart: () => request<{ running: boolean }>('/proxy/start', { method: 'POST' }),

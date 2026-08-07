@@ -9,6 +9,7 @@ export default function App() {
   const [editingConfig, setEditingConfig] = useState(false);
   const [editHost, setEditHost] = useState('');
   const [editPort, setEditPort] = useState('');
+  const [editScheme, setEditScheme] = useState<'http' | 'https'>('http');
   const [status, setStatus] = useState<ProxyStatus>({ running: false, capturing: false, activeModel: null });
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -169,7 +170,7 @@ export default function App() {
   };
 
   const handleSaveConfig = () => {
-    api.updateConfig({ targetHost: editHost, targetPort: parseInt(editPort, 10) }).then(c => {
+    api.updateConfig({ targetHost: editHost, targetPort: parseInt(editPort, 10), targetScheme: editScheme }).then(c => {
       setConfig(c);
       setEditingConfig(false);
     }).catch(() => showError('Failed to save config'));
@@ -179,6 +180,7 @@ export default function App() {
     if (config) {
       setEditHost(config.targetHost);
       setEditPort(String(config.targetPort));
+      setEditScheme(config.targetScheme);
     }
     setEditingConfig(true);
   };
@@ -205,12 +207,22 @@ export default function App() {
         <div className="header-center">
           {config && !editingConfig && (
             <span className="target-url" onClick={startEditingConfig} title="Click to edit target">
-              {config.targetHost}:{config.targetPort}
+              {config.targetScheme}://{config.targetHost}:{config.targetPort}
               <span className="edit-icon">✎</span>
             </span>
           )}
           {config && editingConfig && (
             <span className="target-url editing">
+              <select
+                value={editScheme}
+                onChange={e => setEditScheme(e.target.value as 'http' | 'https')}
+                disabled={status.running}
+                title={status.running ? 'Stop proxy to change target' : ''}
+              >
+                <option value="http">http</option>
+                <option value="https">https</option>
+              </select>
+              <span className="sep">://</span>
               <input
                 className="host-input"
                 value={editHost}

@@ -5,6 +5,7 @@ export interface StoredProxyConfig {
   targetHost: string
   targetPort: number
   proxyPort: number
+  targetScheme: 'http' | 'https'
 }
 
 const CONFIG_FILENAME = 'proxy-config.json'
@@ -23,6 +24,7 @@ export function loadProxyConfig(dataDir: string, envFallback: StoredProxyConfig)
         targetHost: parsed.targetHost ?? envFallback.targetHost,
         targetPort: parsed.targetPort ?? envFallback.targetPort,
         proxyPort: parsed.proxyPort ?? envFallback.proxyPort,
+        targetScheme: parsed.targetScheme ?? envFallback.targetScheme,
       }
     } catch {
       // corrupt file, fall through

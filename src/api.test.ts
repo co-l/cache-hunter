@@ -31,7 +31,7 @@ describe('API Endpoints', () => {
     const { ProxyEngine } = await import('./proxy-engine.js');
     const { createApp } = await import('./app.js');
 
-    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort: 8765, proxyPort: 0 });
+    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort: 8765, proxyPort: 0, targetScheme: 'http' });
     const app = createApp(engine, TEST_DATA_DIR);
 
     server = await new Promise<any>((resolve) => {
@@ -51,6 +51,7 @@ describe('API Endpoints', () => {
     expect(status).toBe(200);
     expect(body.targetHost).toBe('localhost');
     expect(body.targetPort).toBe(8765);
+    expect(body.targetScheme).toBe('http');
   });
 
   it('PUT /api/config updates config and persists to disk', async () => {
@@ -67,6 +68,28 @@ describe('API Endpoints', () => {
     const saved = JSON.parse(readFileSync(configPath, 'utf-8'));
     expect(saved.targetHost).toBe('10.0.0.1');
     expect(saved.targetPort).toBe(8080);
+  });
+
+  it('PUT /api/config with targetScheme https updates correctly', async () => {
+    const { status, body } = await fetchJson(`${baseUrl}/api/config`, {
+      method: 'PUT',
+      body: JSON.stringify({ targetHost: 'api.anthropic.com', targetPort: 443, targetScheme: 'https' }),
+    });
+    expect(status).toBe(200);
+    expect(body.targetScheme).toBe('https');
+    expect(body.targetHost).toBe('api.anthropic.com');
+
+    const saved = JSON.parse(readFileSync(getConfigPath(TEST_DATA_DIR), 'utf-8'));
+    expect(saved.targetScheme).toBe('https');
+  });
+
+  it('PUT /api/config ignores invalid targetScheme', async () => {
+    const { status, body } = await fetchJson(`${baseUrl}/api/config`, {
+      method: 'PUT',
+      body: JSON.stringify({ targetScheme: 'ftp' }),
+    });
+    expect(status).toBe(200);
+    expect(body.targetScheme).toBe('http');
   });
 
   it('GET /api/proxy/status returns stopped initially', async () => {
