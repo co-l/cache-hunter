@@ -18,7 +18,7 @@ export function hashContent(content: string | any[] | null | undefined): string 
 }
 
 function serializeMessage(msg: Record<string, unknown>): string {
-  return JSON.stringify(msg, Object.keys(msg).sort())
+  return JSON.stringify(msg)
 }
 
 export function buildContextTree(messages: Array<Record<string, unknown>>): ContextNode[] {

@@ -63,6 +63,20 @@ describe('parseRequestBody', () => {
     expect(result.messages[0]).toHaveProperty('type', 'message');
   });
 
+  it('parses Anthropic Messages API format (path with query string)', () => {
+    const body = JSON.stringify({
+      model: 'deepseek-v4-flash',
+      system: 'You are a helpful assistant.',
+      messages: [{ role: 'user', content: 'Hello from claude' }],
+      tools: [{ name: 'test_tool' }],
+      max_tokens: 1024,
+    });
+    const result = parseRequestBody(body, '/v1/messages?beta=true');
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]).toEqual({ role: 'user', content: 'Hello from claude' });
+    expect(result.tools).toEqual([{ name: 'test_tool' }]);
+  });
+
   it('returns empty messages for unknown path', () => {
     const body = JSON.stringify({ foo: 'bar' });
     const result = parseRequestBody(body, '/v1/unknown');

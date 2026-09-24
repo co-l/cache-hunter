@@ -38,6 +38,19 @@ test('buildMessageHashGrid differentiates by role', () => {
   expect(grid.cells[0][0]).not.toBe(grid.cells[0][1]);
 });
 
+test('buildMessageHashGrid includes nested content text in hash', () => {
+  const completions = [
+    { messages: [{ role: 'user', content: [{ type: 'input_text', text: 'Plan A' }] }] },
+    { messages: [{ role: 'user', content: [{ type: 'input_text', text: 'Plan B' }] }] }
+  ];
+
+  const { grid, hashMap } = buildMessageHashGrid(completions);
+  // Different nested text must produce different hashes
+  expect(grid.cells[0][0]).not.toBe(grid.cells[0][1]);
+  expect(hashMap[grid.cells[0][0]!]).toContain('Plan A');
+  expect(hashMap[grid.cells[0][1]!]).toContain('Plan B');
+});
+
 test('buildMessageHashGrid handles messages without content field', () => {
   const completions: any[] = [
     { messages: [{ role: 'user', content: 'Hello' }, { role: 'assistant' }] }

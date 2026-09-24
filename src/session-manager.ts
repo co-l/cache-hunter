@@ -151,7 +151,7 @@ async function readSessionCompletions(
   const query = `
     SELECT body, path
     FROM requests
-    WHERE path IN ('/v1/chat/completions', '/v1/responses')
+    WHERE path IN ('/v1/chat/completions', '/v1/responses') OR path LIKE '/v1/messages%'
     ORDER BY timestamp
   `;
   const results = db.exec(query);
@@ -208,7 +208,7 @@ export async function deleteSessionCall(id: string, callIndex: number): Promise<
 
   const idsResult = db.exec(`
     SELECT id FROM requests
-    WHERE path IN ('/v1/chat/completions', '/v1/responses')
+    WHERE path IN ('/v1/chat/completions', '/v1/responses') OR path LIKE '/v1/messages%'
     ORDER BY timestamp
   `)
 

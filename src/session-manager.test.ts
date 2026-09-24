@@ -170,7 +170,7 @@ describe('SessionManager', () => {
     expect(cleared!.name).toBeUndefined()
   })
 
-  async function writeRequests(rows: Array<{ id: string; ts: number; body: string }>, sessionId?: string) {
+  async function writeRequests(rows: Array<{ id: string; ts: number; body: string; path?: string }>, sessionId?: string) {
     const session = createSession('localhost', 8000, 'test-model', sessionId)
     const dbPath = getSessionDbPath(session.id)!
     const initSqlJs = (await import('sql.js')).default
@@ -182,8 +182,8 @@ describe('SessionManager', () => {
       cache_salt TEXT, client_ip TEXT
     )`)
     for (const r of rows) {
-      db.run("INSERT INTO requests (id, timestamp, method, path, headers, body) VALUES (?, ?, 'POST', '/v1/chat/completions', '{}', ?)",
-        [r.id, r.ts, r.body])
+      db.run("INSERT INTO requests (id, timestamp, method, path, headers, body) VALUES (?, ?, 'POST', ?, '{}', ?)",
+        [r.id, r.ts, r.path || '/v1/chat/completions', r.body])
     }
     writeFileSync(dbPath, Buffer.from(db.export()))
     db.close()
@@ -261,6 +261,20 @@ describe('SessionManager', () => {
 
     const grid = await getSessionHashGrid(session.id)
     expect(grid.lines[1][0]).toBe('max')
+  })
+
+  it('should build a hash grid from Anthropic Messages API requests', async () => {
+    const session = await writeRequests([
+      {
+        id: 't1', ts: 100,
+        path: '/v1/messages?beta=true',
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'Hello from claude' }] }),
+      },
+    ])
+
+    const grid = await getSessionHashGrid(session.id)
+    expect(grid).not.toBeNull()
+    expect(JSON.stringify(grid)).toContain('Hello from claude')
   })
 
   async function markCompleted(sessionId: string) {

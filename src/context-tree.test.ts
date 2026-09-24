@@ -60,6 +60,15 @@ describe('Context Tree Analysis', () => {
       expect(tree1[0].messageHash).not.toBe(tree2[0].messageHash);
     });
 
+    it('should include nested content text in message hashes', () => {
+      const messages1 = [{ role: 'user', content: [{ type: 'input_text', text: 'Plan A' }] }];
+      const messages2 = [{ role: 'user', content: [{ type: 'input_text', text: 'Plan B' }] }];
+      const tree1 = buildContextTree(messages1);
+      const tree2 = buildContextTree(messages2);
+      // Different nested text must produce different hashes
+      expect(tree1[0].messageHash).not.toBe(tree2[0].messageHash);
+    });
+
     it('should build cumulative context hash for multiple messages', () => {
       const messages = [
         { role: 'user', content: 'Hello' },
