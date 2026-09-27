@@ -215,8 +215,6 @@ export default function App() {
                 className="host-input"
                 value={editHost}
                 onChange={e => setEditHost(e.target.value)}
-                disabled={status.running}
-                title={status.running ? 'Stop proxy to change target' : ''}
                 placeholder="host"
               />
               <span className="sep">:</span>
@@ -224,12 +222,10 @@ export default function App() {
                 className="port-input"
                 value={editPort}
                 onChange={e => setEditPort(e.target.value)}
-                disabled={status.running}
-                title={status.running ? 'Stop proxy to change target' : ''}
                 placeholder="port"
               />
-              <button className="small primary" onClick={handleSaveConfig} disabled={status.running}>✓</button>
-              <button className="small" onClick={() => setEditingConfig(false)} disabled={status.running}>✗</button>
+              <button className="small primary" onClick={handleSaveConfig}>✓</button>
+              <button className="small" onClick={() => setEditingConfig(false)}>✗</button>
             </span>
           )}
         </div>

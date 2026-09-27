@@ -69,6 +69,24 @@ describe('API Endpoints', () => {
     expect(saved.targetPort).toBe(8080);
   });
 
+  it('PUT /api/config while running retargets the live proxy and persists', async () => {
+    await fetchJson(`${baseUrl}/api/proxy/start`, { method: 'POST' });
+
+    const { status, body } = await fetchJson(`${baseUrl}/api/config`, {
+      method: 'PUT',
+      body: JSON.stringify({ targetHost: '127.0.0.1', targetPort: 9999 }),
+    });
+    expect(status).toBe(200);
+    expect(body.targetHost).toBe('127.0.0.1');
+    expect(body.targetPort).toBe(9999);
+
+    const saved = JSON.parse(readFileSync(getConfigPath(TEST_DATA_DIR), 'utf-8'));
+    expect(saved.targetHost).toBe('127.0.0.1');
+    expect(saved.targetPort).toBe(9999);
+
+    await fetchJson(`${baseUrl}/api/proxy/stop`, { method: 'POST' });
+  });
+
   it('GET /api/proxy/status returns stopped initially', async () => {
     const { status, body } = await fetchJson(`${baseUrl}/api/proxy/status`);
     expect(status).toBe(200);

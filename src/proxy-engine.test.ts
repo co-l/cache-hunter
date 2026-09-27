@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createServer, IncomingMessage } from 'http'
 import { AddressInfo } from 'net'
 import { ProxyEngine, concatUtf8 } from './proxy-engine.js'
@@ -193,10 +193,57 @@ describe('ProxyEngine', () => {
     expect(cfg.targetPort).toBe(9000)
   })
 
-  it('should throw when updating config while running', async () => {
+  it('should retarget a running proxy and route traffic to the new target', async () => {
+    const hits: Record<string, number> = {}
+    const makeTarget = (model: string) => createServer((req, res) => {
+      if (req.url !== '/v1/models') hits[model] = (hits[model] || 0) + 1
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      if (req.url === '/v1/models') {
+        res.end(JSON.stringify({ data: [{ id: model }] }))
+      } else {
+        res.end(JSON.stringify({ choices: [] }))
+      }
+    })
+
+    const targetA = makeTarget('model-a')
+    const targetB = makeTarget('model-b')
+    await new Promise<void>((resolve) => targetA.listen(0, 'localhost', resolve))
+    await new Promise<void>((resolve) => targetB.listen(0, 'localhost', resolve))
+    const portA = (targetA.address() as AddressInfo).port
+    const portB = (targetB.address() as AddressInfo).port
+
+    const engine = new ProxyEngine({ targetHost: 'localhost', targetPort: portA, proxyPort: 0 })
+    await engine.start()
+    const proxyPort = engine.getConfig().proxyPort
+
+    const post = () => fetch(`http://localhost:${proxyPort}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: 'test' }),
+    })
+
+    await post()
+    expect(hits['model-a']).toBe(1)
+    expect(engine.activeModel).toBe('model-a')
+
+    engine.updateConfig({ targetPort: portB })
+    await post()
+    expect(hits['model-a']).toBe(1)
+    expect(hits['model-b']).toBe(1)
+
+    await vi.waitFor(() => {
+      expect(engine.activeModel).toBe('model-b')
+    })
+
+    await engine.stop()
+    await new Promise<void>((resolve) => targetA.close(() => resolve()))
+    await new Promise<void>((resolve) => targetB.close(() => resolve()))
+  })
+
+  it('should throw when changing proxy port while running', async () => {
     const engine = new ProxyEngine({ targetHost: 'localhost', targetPort, proxyPort: 0 })
     await engine.start()
-    expect(() => engine.updateConfig({ targetHost: 'other' })).toThrow('Cannot update config while proxy is running')
+    expect(() => engine.updateConfig({ proxyPort: 9999 })).toThrow('Cannot change proxy port while proxy is running')
     await engine.stop()
   })
 })

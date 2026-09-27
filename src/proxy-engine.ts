@@ -49,8 +49,13 @@ export class ProxyEngine extends EventEmitter {
   get activeModel(): string | null { return this._activeModel }
 
   updateConfig(config: Partial<ProxyEngineConfig>): void {
-    if (this._running) throw new Error('Cannot update config while proxy is running')
+    const targetChanged =
+      (config.targetHost !== undefined && config.targetHost !== this.config.targetHost) ||
+      (config.targetPort !== undefined && config.targetPort !== this.config.targetPort)
+    const portChanged = config.proxyPort !== undefined && config.proxyPort !== this.config.proxyPort
+    if (this._running && portChanged) throw new Error('Cannot change proxy port while proxy is running')
     Object.assign(this.config, config)
+    if (this._running && targetChanged) this.fetchActiveModel()
   }
 
   getConfig(): ProxyEngineConfig {
