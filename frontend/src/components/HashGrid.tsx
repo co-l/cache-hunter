@@ -29,6 +29,8 @@ interface HashGridProps {
   autoScroll?: boolean
 }
 
+const TOOLS_ROW_INDEX = 1
+
 export const HashGrid = memo(function HashGrid({ data, onDeleteColumn, autoScroll }: HashGridProps) {
   const { lines, hash_map } = data;
   const header = lines[0];
@@ -108,7 +110,7 @@ export const HashGrid = memo(function HashGrid({ data, onDeleteColumn, autoScrol
   }, []);
 
   const isDiffCell = useCallback((rowIdx: number, colIdx: number): boolean => {
-    return computeIsDiffCell(dataRows[rowIdx], columnThread, excludedCols, colIdx);
+    return computeIsDiffCell(dataRows[rowIdx], columnThread, excludedCols, colIdx, rowIdx === TOOLS_ROW_INDEX);
   }, [dataRows, columnThread, excludedCols]);
 
   const colHasDiff = useCallback((colIdx: number): boolean => {
@@ -223,7 +225,7 @@ export const HashGrid = memo(function HashGrid({ data, onDeleteColumn, autoScrol
                     const hash = cell?.trim() || null;
                     let cls = 'hash-cell';
                     cls += ' ' + threadClassOf(ci);
-                    if (hash && isDiffCell(ri, ci)) cls += ' diff-cell';
+                    if (isDiffCell(ri, ci)) cls += ' diff-cell';
                     if (excludedCols.has(ci)) cls += ' excluded';
                     if (hash && hash === compareA) cls += ' compare-a';
                     if (hash && hash === compareB) cls += ' compare-b';
@@ -233,14 +235,14 @@ export const HashGrid = memo(function HashGrid({ data, onDeleteColumn, autoScrol
                         key={'call-' + ci}
                         className={cls}
                         onClick={hash ? (e) => handleCellClick(hash, e) : undefined}
-                        title={hash ? 'Click to view content | Ctrl+click to compare' : undefined}
+                        title={hash ? 'Click to view content | Ctrl+click to compare' : isDiffCell(ri, ci) ? 'No tools used — tools removed vs earlier call' : undefined}
                       >
                         {hash || ''}
                       </td>
                     );
                   })}
                   <td className="content-cell">
-                    {ri === 0 ? 'Reasoning Effort' : ri === 1 ? 'Tools' : lastHash ? contentExcerpt(lastHash) : ''}
+                    {ri === 0 ? 'Reasoning Effort' : ri === TOOLS_ROW_INDEX ? 'Tools' : lastHash ? contentExcerpt(lastHash) : ''}
                   </td>
                 </tr>
               );

@@ -50,4 +50,32 @@ describe('computeIsDiffCell', () => {
     expect(computeIsDiffCell([HASH_A, HASH_B], [undefined, undefined], set(), 1)).toBe(true)
     expect(computeIsDiffCell([HASH_A, HASH_B], [], set(), 1)).toBe(true)
   })
+
+  describe('tools row invalidation (isToolsRow)', () => {
+    it('marks an empty tools cell as diff when the previous same-thread column had tools', () => {
+      expect(computeIsDiffCell([HASH_A, null], [0, 0], set(), 1, true)).toBe(true)
+      expect(computeIsDiffCell([HASH_A, ''], [0, 0], set(), 1, true)).toBe(true)
+    })
+
+    it('does not mark an empty tools cell when the previous same-thread column had no tools', () => {
+      expect(computeIsDiffCell([null, null], [0, 0], set(), 1, true)).toBe(false)
+      expect(computeIsDiffCell(['', null], [0, 0], set(), 1, true)).toBe(false)
+    })
+
+    it('does not mark an empty tools cell when there is no same-thread predecessor', () => {
+      expect(computeIsDiffCell([HASH_A, null], [0, 1], set(), 1, true)).toBe(false)
+      expect(computeIsDiffCell([null], [0], set(), 0, true)).toBe(false)
+    })
+
+    it('skips excluded intervening tools columns and compares to the earlier same-thread column', () => {
+      expect(computeIsDiffCell([HASH_A, HASH_B, null], [0, 0, 0], set(1), 2, true)).toBe(true)
+      expect(computeIsDiffCell([HASH_A, null, null], [0, 0, 0], set(1), 2, true)).toBe(true)
+      expect(computeIsDiffCell([null, HASH_B, null], [0, 0, 0], set(1), 2, true)).toBe(false)
+    })
+
+    it('keeps normal non-empty diff behavior on the tools row', () => {
+      expect(computeIsDiffCell([HASH_A, HASH_B], [0, 0], set(), 1, true)).toBe(true)
+      expect(computeIsDiffCell([HASH_A, HASH_A], [0, 0], set(), 1, true)).toBe(false)
+    })
+  })
 });
